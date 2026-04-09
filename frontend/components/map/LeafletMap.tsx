@@ -1,0 +1,1287 @@
+'use client';
+
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import { useEffect, useRef, useState } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { io } from 'socket.io-client';
+import { MapPin } from 'lucide-react';
+import GroupChatPanel from '@/components/chat/GroupChatPanel';
+import GroupInvitePanel from '@/components/group/GroupInvitePanel';
+import LoginPanel from '@/components/auth/LoginPanel';
+import TripCreateDialog from '@/components/trip/TripCreateDialog';
+import TripEditDialog from '@/components/trip/TripEditDialog';
+import ImagePreviewOverlay from '@/components/media/ImagePreviewOverlay';
+import MapSearchBar from '@/components/search/MapSearchBar';
+import BottomControlBar from '@/components/map/BottomControlBar';
+import NoticeDialog from '@/components/common/NoticeDialog';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
+import { useGroupChat } from '@/hooks/useGroupChat';
+import { useGroupInvite } from '@/hooks/useGroupInvite';
+import { useAuth } from '@/hooks/useAuth';
+import { useTrip } from '@/hooks/useTrip';
+
+const API_BASE_URL = 'http://192.168.137.1:4000';
+const SOCKET_PROBE_URL = `${API_BASE_URL}/socket.io/?EIO=4&transport=polling`;
+const socket = io(API_BASE_URL, {
+  autoConnect: false,
+  reconnection: false,
+  timeout: 5000,
+  transports: ['websocket', 'polling'],
+});
+
+// --- 1. 图标生成函数 ---
+const createColoredIcon = (color: 'red' | 'blue' | 'green' | 'purple' | 'yellow') => {
+  return L.divIcon({
+    className: 'custom-div-icon',
+    html: `<div class="marker-pin ${color}"></div>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+    popupAnchor: [0, -10],
+  });
+};
+
+const createCurrentLocationIcon = () => {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="48" viewBox="0 0 36 48">
+      <defs>
+        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+          <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#1e3a8a" flood-opacity="0.35"/>
+        </filter>
+      </defs>
+      <path filter="url(#shadow)" d="M18 2C10.27 2 4 8.27 4 16c0 9.78 10.95 20.91 13.46 23.34a.78.78 0 0 0 1.08 0C21.05 36.91 32 25.78 32 16 32 8.27 25.73 2 18 2z" fill="#3B82F6"/>
+      <circle cx="18" cy="16" r="6" fill="#DBEAFE"/>
+    </svg>
+  `;
+
+  return L.icon({
+    iconUrl: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    iconSize: [36, 48],
+    iconAnchor: [18, 46],
+    popupAnchor: [0, -42],
+  });
+};
+
+const currentLocationIcon = createCurrentLocationIcon();
+
+const createSavedTripIcon = () => {
+  const pinSvg = renderToStaticMarkup(
+    <MapPin size={16} strokeWidth={2.4} className="saved-trip-map-pin" fill="currentColor" />
+  );
+
+  return L.divIcon({
+    className: 'saved-trip-div-icon',
+    html: `
+      <div class="saved-trip-pin animate-pulse" aria-hidden="true">
+        <div class="saved-trip-pin-shell">${pinSvg}</div>
+        <span class="saved-trip-pin-core"></span>
+      </div>
+    `,
+    iconSize: [42, 42],
+    iconAnchor: [21, 21],
+    popupAnchor: [0, -18],
+  });
+};
+
+const savedTripIcon = createSavedTripIcon();
+
+const SEARCH_FOCUS_ZOOM = 17;
+const GEO_ACCURACY_THRESHOLD_METERS = 60;
+const FIRST_FIX_MAX_ACCURACY_METERS = 120;
+const EARTH_A = 6378245.0;
+const EE = 0.00669342162296594323;
+
+const createSearchHintIcon = () => {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+      <defs>
+        <filter id="searchHintGlow" x="-60%" y="-60%" width="220%" height="220%">
+          <feDropShadow dx="0" dy="0" stdDeviation="2" flood-color="#7E9D82" flood-opacity="0.52"/>
+        </filter>
+      </defs>
+      <circle cx="20" cy="20" r="7" fill="#7E9D82" fill-opacity="0.46" filter="url(#searchHintGlow)">
+        <animate attributeName="r" from="7" to="18" dur="1.5s" repeatCount="indefinite"/>
+        <animate attributeName="fill-opacity" from="0.5" to="0" dur="1.5s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="20" cy="20" r="5.2" fill="#6F8B73" stroke="#ffffff" stroke-width="2.4"/>
+    </svg>
+  `;
+
+  return L.icon({
+    iconUrl: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+    popupAnchor: [0, -14],
+  });
+};
+
+const searchHintIcon = createSearchHintIcon();
+
+type SearchResult = {
+  place_id: number;
+  display_name: string;
+  lat: string;
+  lon: string;
+};
+
+type PreviewImageItem = {
+  src: string;
+  alt: string;
+};
+
+const isValidHttpUrl = (value: string) => {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
+const compressImageFile = (file: File, maxSide = 1600, quality = 0.78) => {
+  return new Promise<string>((resolve, reject) => {
+    if (!file.type.startsWith('image/')) {
+      reject(new Error('仅支持图片文件'));
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+
+    image.onload = () => {
+      const width = image.naturalWidth;
+      const height = image.naturalHeight;
+      const scale = Math.min(1, maxSide / Math.max(width, height));
+      const targetWidth = Math.max(1, Math.round(width * scale));
+      const targetHeight = Math.max(1, Math.round(height * scale));
+
+      const canvas = document.createElement('canvas');
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('图片压缩失败'));
+        return;
+      }
+
+      ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
+      const dataUrl = canvas.toDataURL('image/jpeg', quality);
+      URL.revokeObjectURL(objectUrl);
+      resolve(dataUrl);
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('图片读取失败'));
+    };
+
+    image.src = objectUrl;
+  });
+};
+
+const fileToBase64 = (file: File) => {
+  return new Promise<string>((resolve, reject) => {
+    compressImageFile(file)
+      .then(resolve)
+      .catch(() => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+        reader.onerror = () => reject(new Error('文件读取失败'));
+        reader.readAsDataURL(file);
+      });
+  });
+};
+
+const filesToBase64Array = async (files: File[] | FileList) => {
+  const fileArray = Array.from(files);
+  const encoded = await Promise.all(fileArray.map((file) => fileToBase64(file)));
+  return encoded.filter((item) => item.trim() !== '');
+};
+
+const parseTripImages = (value: unknown): string[] => {
+  if (typeof value !== 'string' || value.trim() === '') {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
+    }
+  } catch {
+    // 兼容旧数据：单张 URL 字符串。
+  }
+
+  if (value.startsWith('data:image/') || isValidHttpUrl(value)) {
+    return [value];
+  }
+
+  return [];
+};
+
+const outOfChina = (lat: number, lng: number) => {
+  return lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271;
+};
+
+const transformLat = (x: number, y: number) => {
+  let ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+  ret += (20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) * 2.0 / 3.0;
+  ret += (20.0 * Math.sin(y * Math.PI) + 40.0 * Math.sin(y / 3.0 * Math.PI)) * 2.0 / 3.0;
+  ret += (160.0 * Math.sin(y / 12.0 * Math.PI) + 320.0 * Math.sin(y * Math.PI / 30.0)) * 2.0 / 3.0;
+  return ret;
+};
+
+const transformLng = (x: number, y: number) => {
+  let ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+  ret += (20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) * 2.0 / 3.0;
+  ret += (20.0 * Math.sin(x * Math.PI) + 40.0 * Math.sin(x / 3.0 * Math.PI)) * 2.0 / 3.0;
+  ret += (150.0 * Math.sin(x / 12.0 * Math.PI) + 300.0 * Math.sin(x / 30.0 * Math.PI)) * 2.0 / 3.0;
+  return ret;
+};
+
+const gcj02ToWgs84 = (lat: number, lng: number): [number, number] => {
+  if (outOfChina(lat, lng)) {
+    return [lat, lng];
+  }
+
+  let dLat = transformLat(lng - 105.0, lat - 35.0);
+  let dLng = transformLng(lng - 105.0, lat - 35.0);
+  const radLat = lat / 180.0 * Math.PI;
+  let magic = Math.sin(radLat);
+  magic = 1 - EE * magic * magic;
+  const sqrtMagic = Math.sqrt(magic);
+  dLat = (dLat * 180.0) / ((EARTH_A * (1 - EE)) / (magic * sqrtMagic) * Math.PI);
+  dLng = (dLng * 180.0) / (EARTH_A / sqrtMagic * Math.cos(radLat) * Math.PI);
+  const mgLat = lat + dLat;
+  const mgLng = lng + dLng;
+  return [lat * 2 - mgLat, lng * 2 - mgLng];
+};
+
+const wgs84ToGcj02 = (lat: number, lng: number): [number, number] => {
+  if (outOfChina(lat, lng)) {
+    return [lat, lng];
+  }
+
+  let dLat = transformLat(lng - 105.0, lat - 35.0);
+  let dLng = transformLng(lng - 105.0, lat - 35.0);
+  const radLat = lat / 180.0 * Math.PI;
+  let magic = Math.sin(radLat);
+  magic = 1 - EE * magic * magic;
+  const sqrtMagic = Math.sqrt(magic);
+  dLat = (dLat * 180.0) / ((EARTH_A * (1 - EE)) / (magic * sqrtMagic) * Math.PI);
+  dLng = (dLng * 180.0) / (EARTH_A / sqrtMagic * Math.cos(radLat) * Math.PI);
+  return [lat + dLat, lng + dLng];
+};
+
+const toMapPosition = (lat: number, lng: number, useGcj: boolean): [number, number] => {
+  if (!useGcj) {
+    return [lat, lng];
+  }
+  return wgs84ToGcj02(lat, lng);
+};
+
+const toStoragePosition = (lat: number, lng: number, useGcj: boolean): [number, number] => {
+  if (!useGcj) {
+    return [lat, lng];
+  }
+  return gcj02ToWgs84(lat, lng);
+};
+
+function MapInstanceBridge({ onMapReady }: { onMapReady: (map: L.Map) => void }) {
+  const map = useMap();
+
+  useEffect(() => {
+    onMapReady(map);
+  }, [map, onMapReady]);
+
+  return null;
+}
+
+// --- 2. 处理地图点击并保存到 MySQL 的组件 ---
+function MapClickHandler({ onMapClick, userId, onNotice }: { onMapClick: (position: [number, number]) => void; userId: string | null; onNotice: (message: string) => void }) {
+  useMapEvents({
+    click: (e) => {
+      if (!userId) {
+        onNotice('请先登录');
+        return;
+      }
+
+      const { lat, lng } = e.latlng;
+      onMapClick([lat, lng]);
+    },
+  });
+  return null;
+}
+
+// --- 3. 实时追踪逻辑组件 ---
+function LiveLocationTracker({ onOthersUpdate, onMyPositionUpdate, onMyAccuracyUpdate, useGcjOffset, shareEnabled, groupCode, currentUserName, currentUserId }: { onOthersUpdate: (locs: any) => void; onMyPositionUpdate: (pos: [number, number]) => void; onMyAccuracyUpdate: (accuracy: number | null) => void; useGcjOffset: boolean; shareEnabled: boolean; groupCode: string | null; currentUserName: string | null; currentUserId: string | null }) {
+  const [myPosition, setMyPosition] = useState<[number, number] | null>(null);
+  const bestAccuracyRef = useRef<number>(Infinity);
+  const socketEnabledRef = useRef(false);
+
+  useEffect(() => {
+    let canceled = false;
+
+    const tryEnableSocket = async () => {
+      if (!shareEnabled || !groupCode) {
+        socketEnabledRef.current = false;
+        onOthersUpdate({});
+        socket.off('group-locations');
+        return;
+      }
+
+      try {
+        const probe = await fetch(SOCKET_PROBE_URL, { method: 'GET', cache: 'no-store' });
+        if (!probe.ok || canceled) {
+          socketEnabledRef.current = false;
+          return;
+        }
+
+        socketEnabledRef.current = true;
+        socket.on('group-locations', (locations) => {
+          onOthersUpdate(locations);
+        });
+        socket.connect();
+        socket.emit('join-group', { code: groupCode, userId: currentUserId, userName: currentUserName || '匿名游民' });
+      } catch (error) {
+        socketEnabledRef.current = false;
+        console.warn('Socket 服务不可用，已跳过实时连接:', error);
+      }
+    };
+
+    tryEnableSocket();
+
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        const isFirstFix = bestAccuracyRef.current === Infinity;
+
+        // 首次定位精度太差时先忽略，等待更好的点。
+        if (isFirstFix && accuracy > FIRST_FIX_MAX_ACCURACY_METERS) {
+          return;
+        }
+
+        // 过滤精度差且没有改善的坐标点，减少明显偏移。
+        if (accuracy > GEO_ACCURACY_THRESHOLD_METERS && accuracy >= bestAccuracyRef.current) {
+          return;
+        }
+
+        bestAccuracyRef.current = Math.min(bestAccuracyRef.current, accuracy);
+        const newPos = toMapPosition(latitude, longitude, useGcjOffset);
+        setMyPosition(newPos);
+        onMyPositionUpdate(newPos);
+        onMyAccuracyUpdate(accuracy);
+        if (shareEnabled && groupCode && socketEnabledRef.current && socket.connected) {
+          socket.emit('update-location', { lat: newPos[0], lng: newPos[1], userName: currentUserName || '我（在线）' });
+        }
+      },
+      (err) => {
+        console.warn('定位更新失败:', err.message);
+        onMyAccuracyUpdate(null);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+
+    return () => {
+      canceled = true;
+      navigator.geolocation.clearWatch(watchId);
+      socket.off('group-locations');
+    };
+  }, [onMyAccuracyUpdate, onMyPositionUpdate, onOthersUpdate, useGcjOffset, shareEnabled, groupCode, currentUserName, currentUserId]);
+
+  return myPosition ? (
+    <Marker position={myPosition} icon={currentLocationIcon}>
+      <Popup>{shareEnabled ? '这是我的实时位置（共享中）' : '这是我的实时位置（仅自己可见）'}</Popup>
+    </Marker>
+  ) : null;
+}
+
+const getColorForId = (id: string): 'blue' | 'green' | 'purple' => {
+  const colors: ['blue', 'green', 'purple'] = ['blue', 'green', 'purple'];
+  const charSum = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return colors[charSum % colors.length];
+};
+
+// --- 5. 主地图组件 ---
+export default function LeafletMap() {
+  const [others, setOthers] = useState<any>({});
+  const { isLoggedIn, userId, userName, applyLogin, clearAuth, loginOrAutoRegister } = useAuth();
+  const [myPosition, setMyPosition] = useState<[number, number] | null>(null);
+  const [myAccuracy, setMyAccuracy] = useState<number | null>(null);
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
+  const [hasAutoLocated, setHasAutoLocated] = useState(false);
+  const [locatePulse, setLocatePulse] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchHintPosition, setSearchHintPosition] = useState<[number, number] | null>(null);
+  const [tripFormOpen, setTripFormOpen] = useState(false);
+  const [pendingTripPosition, setPendingTripPosition] = useState<[number, number] | null>(null);
+  const [tripName, setTripName] = useState('');
+  const [tripNote, setTripNote] = useState('');
+  const [tripFiles, setTripFiles] = useState<File[]>([]);
+  const [tripSaving, setTripSaving] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [pendingDeleteTripId, setPendingDeleteTripId] = useState<number | null>(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [isSharingEnabled, setIsSharingEnabled] = useState(false);
+  const [groupCode, setGroupCode] = useState<string | null>(null);
+  const [editTripOpen, setEditTripOpen] = useState(false);
+  const [editingTripId, setEditingTripId] = useState<number | null>(null);
+  const [editingTripOriginalPhoto, setEditingTripOriginalPhoto] = useState('');
+  const [editTripName, setEditTripName] = useState('');
+  const [editTripNote, setEditTripNote] = useState('');
+  const [editTripFiles, setEditTripFiles] = useState<File[]>([]);
+  const [editImageMode, setEditImageMode] = useState<'keep' | 'replace' | 'clear'>('keep');
+  const [editTripSaving, setEditTripSaving] = useState(false);
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
+  const [noticeCopyValue, setNoticeCopyValue] = useState<string | null>(null);
+  const [previewImages, setPreviewImages] = useState<PreviewImageItem[]>([]);
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const [previewControlsVisible, setPreviewControlsVisible] = useState(false);
+  const previewControlsTimerRef = useRef<number | null>(null);
+  const useGcjOffset = true;
+  const defaultCenter: [number, number] = toMapPosition(30.28, 120.15, useGcjOffset);
+  const { savedTrips, createTrip, updateTrip, removeTrip, clearTrips } = useTrip(API_BASE_URL, userId);
+
+  const showNotice = (message: string, copyValue: string | null = null) => {
+    setNoticeMessage(message);
+    setNoticeCopyValue(copyValue);
+  };
+
+  const copyTextToClipboard = async (value: string) => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+        return true;
+      }
+    } catch {
+      // 浏览器禁用剪贴板权限时走回退逻辑。
+    }
+
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = value;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const copied = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      return copied;
+    } catch {
+      return false;
+    }
+  };
+
+  const {
+    chatOpen,
+    setChatOpen,
+    chatInput,
+    setChatInput,
+    chatMessages,
+    chatHasMore,
+    chatLoadingMore,
+    chatUnread,
+    chatSending,
+    chatListRef,
+    loadOlderChatMessages,
+    sendGroupMessage,
+    resetChatState,
+  } = useGroupChat({
+    socket,
+    isLoggedIn,
+    groupCode,
+    userId,
+    userName,
+    showNotice: (message) => showNotice(message),
+    onKicked: () => {
+      setGroupCode(null);
+      setIsSharingEnabled(false);
+      setOthers({});
+    },
+  });
+
+  const {
+    groupPanelOpen,
+    setGroupPanelOpen,
+    joinGroupDialogOpen,
+    setJoinGroupDialogOpen,
+    groupCodeInput,
+    setGroupCodeInput,
+    copyHintMessage,
+    setCopyHintMessage,
+    createGroup,
+    joinGroupByCode,
+    leaveGroup,
+    copyGroupCode,
+  } = useGroupInvite({
+    socket,
+    isLoggedIn,
+    userId,
+    userName,
+    groupCode,
+    setGroupCode,
+    showNotice,
+    copyTextToClipboard,
+    onLeaveGroupCleanup: () => {
+      setIsSharingEnabled(false);
+      resetChatState();
+      setOthers({});
+    },
+  });
+
+  useEffect(() => {
+    if (!locatePulse) return;
+    const timer = setTimeout(() => setLocatePulse(false), 900);
+    return () => clearTimeout(timer);
+  }, [locatePulse]);
+
+  useEffect(() => {
+    if (!noticeMessage) return;
+    const timer = window.setTimeout(() => {
+      setNoticeMessage(null);
+      setNoticeCopyValue(null);
+    }, noticeCopyValue ? 4200 : 2200);
+    return () => window.clearTimeout(timer);
+  }, [noticeMessage, noticeCopyValue]);
+
+  useEffect(() => {
+    if (!mapInstance || hasAutoLocated) return;
+
+    if (!navigator.geolocation) {
+      setHasAutoLocated(true);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const current = toMapPosition(pos.coords.latitude, pos.coords.longitude, useGcjOffset);
+        setMyPosition(current);
+        mapInstance.flyTo(current, 16, { duration: 0.8 });
+        setLocatePulse(true);
+        setHasAutoLocated(true);
+      },
+      () => {
+        // 首次获取失败时等待 watchPosition 的后续定位结果。
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  }, [mapInstance, hasAutoLocated, useGcjOffset]);
+
+  useEffect(() => {
+    if (!mapInstance || hasAutoLocated || !myPosition) return;
+
+    mapInstance.flyTo(myPosition, 16, { duration: 0.8 });
+    setLocatePulse(true);
+    setHasAutoLocated(true);
+  }, [mapInstance, hasAutoLocated, myPosition]);
+
+  useEffect(() => {
+    if (!searchHintPosition) return;
+    const timer = setTimeout(() => setSearchHintPosition(null), 2600);
+    return () => clearTimeout(timer);
+  }, [searchHintPosition]);
+
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setSearchResults([]);
+      setSearchHintPosition(null);
+    }
+  }, [searchQuery]);
+
+  // 初始化时恢复群组邀请码
+  useEffect(() => {
+    const storedGroupCode = localStorage.getItem('groupCode');
+    if (storedGroupCode) {
+      setGroupCode(storedGroupCode);
+    }
+  }, []);
+
+  const openImagePreview = (images: PreviewImageItem[], index: number) => {
+    if (images.length === 0) return;
+    setPreviewImages(images);
+    setPreviewIndex(Math.min(Math.max(index, 0), images.length - 1));
+    setPreviewControlsVisible(true);
+  };
+
+  const closeImagePreview = () => {
+    setPreviewImages([]);
+    setPreviewControlsVisible(false);
+    if (previewControlsTimerRef.current !== null) {
+      window.clearTimeout(previewControlsTimerRef.current);
+      previewControlsTimerRef.current = null;
+    }
+  };
+
+  const revealPreviewControls = () => {
+    setPreviewControlsVisible(true);
+    if (previewControlsTimerRef.current !== null) {
+      window.clearTimeout(previewControlsTimerRef.current);
+    }
+    previewControlsTimerRef.current = window.setTimeout(() => {
+      setPreviewControlsVisible(false);
+      previewControlsTimerRef.current = null;
+    }, 900);
+  };
+
+  const showPreviousPreview = () => {
+    if (previewImages.length <= 1) return;
+    setPreviewIndex((prev) => (prev - 1 + previewImages.length) % previewImages.length);
+  };
+
+  const showNextPreview = () => {
+    if (previewImages.length <= 1) return;
+    setPreviewIndex((prev) => (prev + 1) % previewImages.length);
+  };
+
+  const activePreview = previewImages.length > 0 ? previewImages[previewIndex] : null;
+  const previewControlStyle = {
+    opacity: previewControlsVisible ? 1 : 0,
+    pointerEvents: (previewControlsVisible ? 'auto' : 'none') as 'auto' | 'none',
+  };
+
+  useEffect(() => {
+    if (!activePreview) {
+      return;
+    }
+
+    revealPreviewControls();
+
+    const handlePreviewKeydown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeImagePreview();
+        return;
+      }
+
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        showPreviousPreview();
+        return;
+      }
+
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        showNextPreview();
+      }
+    };
+
+    window.addEventListener('keydown', handlePreviewKeydown);
+    return () => {
+      window.removeEventListener('keydown', handlePreviewKeydown);
+      if (previewControlsTimerRef.current !== null) {
+        window.clearTimeout(previewControlsTimerRef.current);
+        previewControlsTimerRef.current = null;
+      }
+    };
+  }, [activePreview, previewImages.length]);
+
+  const requestDeleteTrip = (id: number) => {
+    setPendingDeleteTripId(id);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteTrip = async () => {
+    if (pendingDeleteTripId === null) return;
+    setDeleteSubmitting(true);
+    try {
+      const result = await removeTrip(pendingDeleteTripId);
+      if (result.ok) {
+        showNotice('删除成功！');
+      } else {
+        showNotice(result.message || '删除失败，请检查后端连接');
+      }
+    } catch {
+      showNotice('删除失败，请检查后端连接');
+    } finally {
+      setDeleteSubmitting(false);
+      setDeleteConfirmOpen(false);
+      setPendingDeleteTripId(null);
+    }
+  };
+
+  const handleLoginSuccess = (newUserId: string, newUserName: string) => {
+    applyLogin(newUserId, newUserName);
+    if (!groupCode) {
+      setGroupPanelOpen(true);
+    }
+  };
+
+  const handleLogout = () => {
+    clearAuth();
+    setGroupCode(null);
+    setGroupPanelOpen(false);
+    setJoinGroupDialogOpen(false);
+    setGroupCodeInput('');
+    setIsSharingEnabled(false);
+    resetChatState();
+    clearTrips();
+    setOthers({});
+    socket.emit('leave-group');
+    localStorage.removeItem('groupCode');
+  };
+
+  const toggleSharing = () => {
+    if (!isLoggedIn) {
+      showNotice('请先登录后再开启实时共享');
+      return;
+    }
+
+    // 关闭共享不依赖群组状态，任何时候都应可直接关闭。
+    if (isSharingEnabled) {
+      setIsSharingEnabled(false);
+      setOthers({});
+      return;
+    }
+
+    if (!groupCode) {
+      showNotice('请先创建或加入群组再开启共享');
+      setGroupPanelOpen(true);
+      return;
+    }
+    setIsSharingEnabled((prev) => {
+      const next = !prev;
+      if (!next) {
+        setOthers({});
+      }
+      return next;
+    });
+  };
+
+  const toggleChat = () => {
+    if (!isLoggedIn) {
+      showNotice('请先登录后再使用群聊');
+      return;
+    }
+
+    if (!groupCode) {
+      showNotice('请先加入群组再进入群聊');
+      setGroupPanelOpen(true);
+      return;
+    }
+
+    if (!isSharingEnabled) {
+      showNotice('请先开启共享，再进入群聊');
+      return;
+    }
+
+    setChatOpen((prev) => !prev);
+  };
+
+  const handleMapTripClick = (position: [number, number]) => {
+    // 高德回退底图点击得到的是 GCJ-02 视觉坐标，入库前转回 WGS-84 保持数据统一。
+    const normalized = toStoragePosition(position[0], position[1], useGcjOffset);
+    setPendingTripPosition(normalized);
+    setTripName('');
+    setTripNote('');
+    setTripFiles([]);
+    setTripFormOpen(true);
+  };
+
+  const closeTripForm = () => {
+    setTripFormOpen(false);
+    setPendingTripPosition(null);
+    setTripName('');
+    setTripNote('');
+    setTripFiles([]);
+  };
+
+  const openEditTripForm = (trip: any) => {
+    setEditingTripId(trip.id);
+    setEditTripName(typeof trip.name === 'string' ? trip.name : '');
+    setEditTripNote(typeof trip.note === 'string' ? trip.note : '');
+    setEditingTripOriginalPhoto(typeof trip.photoUrl === 'string' ? trip.photoUrl : '');
+    setEditTripFiles([]);
+    setEditImageMode('keep');
+    setEditTripOpen(true);
+  };
+
+  const closeEditTripForm = () => {
+    setEditTripOpen(false);
+    setEditingTripId(null);
+    setEditTripName('');
+    setEditTripNote('');
+    setEditingTripOriginalPhoto('');
+    setEditTripFiles([]);
+    setEditImageMode('keep');
+  };
+
+  const submitTripForm = async () => {
+    if (!userId) {
+      showNotice('请先登录');
+      return;
+    }
+
+    if (!pendingTripPosition) {
+      showNotice('缺少位置坐标，请重新点击地图');
+      return;
+    }
+
+    const trimmedName = tripName.trim();
+    if (!trimmedName) {
+      showNotice('请输入足迹名称');
+      return;
+    }
+
+    setTripSaving(true);
+    try {
+      const imageBase64List = tripFiles.length > 0 ? await filesToBase64Array(tripFiles) : [];
+      const photoUrl = imageBase64List.length > 0 ? JSON.stringify(imageBase64List) : '';
+
+      const result = await createTrip({
+        name: trimmedName,
+        note: tripNote.trim(),
+        photoUrl,
+        lat: pendingTripPosition[0],
+        lng: pendingTripPosition[1],
+        userId,
+      });
+
+      if (result.ok) {
+        showNotice('足迹已存入');
+        closeTripForm();
+      } else {
+        showNotice(result.message || '保存失败，请检查后端连接');
+      }
+    } catch (error) {
+      console.error('保存失败:', error);
+      showNotice('数据库连接失败，请检查后端');
+    } finally {
+      setTripSaving(false);
+    }
+  };
+
+  const submitEditTripForm = async () => {
+    if (!userId) {
+      showNotice('请先登录');
+      return;
+    }
+
+    if (!editingTripId) {
+      showNotice('未找到要修改的足迹');
+      return;
+    }
+
+    const trimmedName = editTripName.trim();
+    if (!trimmedName) {
+      showNotice('请输入足迹名称');
+      return;
+    }
+
+    setEditTripSaving(true);
+    try {
+      let photoUrl = editingTripOriginalPhoto;
+
+      if (editImageMode === 'clear') {
+        photoUrl = '';
+      }
+
+      if (editImageMode === 'replace') {
+        const imageBase64List = editTripFiles.length > 0 ? await filesToBase64Array(editTripFiles) : [];
+        photoUrl = imageBase64List.length > 0 ? JSON.stringify(imageBase64List) : '';
+      }
+
+      const result = await updateTrip({
+        id: editingTripId,
+        userId,
+        name: trimmedName,
+        note: editTripNote.trim(),
+        photoUrl,
+      });
+
+      if (result.ok) {
+        showNotice('足迹已更新');
+        closeEditTripForm();
+      } else {
+        showNotice(result.message || '修改失败，请检查后端连接');
+      }
+    } catch (error) {
+      console.error('修改失败:', error);
+      showNotice('数据库连接失败，请检查后端');
+    } finally {
+      setEditTripSaving(false);
+    }
+  };
+
+  const focusMyLocation = () => {
+    if (!mapInstance) return;
+
+    if (myPosition) {
+      mapInstance.flyTo(myPosition, Math.max(mapInstance.getZoom(), 15), { duration: 0.8 });
+      setLocatePulse(true);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const current = toMapPosition(pos.coords.latitude, pos.coords.longitude, useGcjOffset);
+        setMyPosition(current);
+        mapInstance.flyTo(current, 16, { duration: 0.8 });
+        setLocatePulse(true);
+      },
+      () => {
+        showNotice('暂时无法获取当前位置，请检查定位权限');
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  };
+
+  const focusByResult = (result: SearchResult) => {
+    if (!mapInstance) return;
+    const lat = Number(result.lat);
+    const lon = Number(result.lon);
+    const target = toMapPosition(lat, lon, useGcjOffset);
+    mapInstance.flyTo(target, SEARCH_FOCUS_ZOOM, { duration: 0.9 });
+    setSearchHintPosition(target);
+    setSearchQuery(result.display_name);
+    setSearchResults([]);
+  };
+
+  const handleSearch = async () => {
+    const query = searchQuery.trim();
+    if (!query) return;
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/search/places?q=${encodeURIComponent(query)}&limit=8`,
+        { method: 'GET', cache: 'no-store' }
+      );
+      if (!response.ok) {
+        setSearchResults([]);
+        const errorData = await response.json().catch(() => ({}));
+        showNotice(errorData.error || '搜索服务暂时不可用，请稍后重试');
+        return;
+      }
+
+      const results = (await response.json()) as SearchResult[];
+      setSearchResults(results);
+
+      if (results.length > 0 && mapInstance) {
+        const first = results[0];
+        const target = toMapPosition(Number(first.lat), Number(first.lon), useGcjOffset);
+        mapInstance.flyTo(target, SEARCH_FOCUS_ZOOM, { duration: 0.9 });
+        setSearchHintPosition(target);
+      }
+    } catch (error) {
+      console.error('搜索地点失败:', error);
+      setSearchResults([]);
+      showNotice('网络异常，暂时无法搜索地点');
+    }
+  };
+
+  const editTripHasImages = parseTripImages(editingTripOriginalPhoto).length > 0;
+
+  return (
+    <div className="h-full w-full relative">
+      <style jsx global>{`
+        .leaflet-div-icon.saved-trip-div-icon,
+        .leaflet-div-icon.custom-div-icon {
+          background: transparent !important;
+          border: 0 !important;
+          box-shadow: none !important;
+        }
+
+        .animate-pulse.saved-trip-pin {
+          animation: saved-trip-breathe 2.3s ease-in-out infinite;
+        }
+
+        .saved-trip-pin {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 42px;
+          height: 42px;
+          transform: translateZ(0);
+        }
+
+        .saved-trip-pin-shell {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          border-radius: 9999px;
+          background: rgba(99, 102, 241, 0.2);
+          border: 1px solid rgba(99, 102, 241, 0.45);
+          box-shadow: 0 8px 20px rgba(67, 56, 202, 0.2);
+        }
+
+        .saved-trip-map-pin {
+          color: #4338ca;
+          filter: drop-shadow(0 1px 1px rgba(49, 46, 129, 0.22));
+        }
+
+        .saved-trip-pin-core {
+          position: absolute;
+          width: 8px;
+          height: 8px;
+          border-radius: 9999px;
+          background: #312e81;
+          box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.72);
+        }
+
+        @keyframes saved-trip-breathe {
+          0%,
+          100% {
+            transform: scale(1);
+            opacity: 0.96;
+          }
+          50% {
+            transform: scale(1.08);
+            opacity: 0.78;
+          }
+        }
+      `}</style>
+
+      <MapSearchBar
+        searchQuery={searchQuery}
+        searchResults={searchResults}
+        onSearchQueryChange={setSearchQuery}
+        onSearch={handleSearch}
+        onSelectResult={focusByResult}
+      />
+
+      {/* 登录UI */}
+      <LoginPanel
+        apiBaseUrl={API_BASE_URL}
+        onLoginSuccess={handleLoginSuccess}
+        onLogout={handleLogout}
+        isLoggedIn={isLoggedIn}
+        userName={userName}
+        loginOrAutoRegister={loginOrAutoRegister}
+      />
+
+      <TripCreateDialog
+        open={tripFormOpen}
+        tripName={tripName}
+        tripNote={tripNote}
+        tripFiles={tripFiles}
+        tripSaving={tripSaving}
+        onClose={closeTripForm}
+        onTripNameChange={setTripName}
+        onTripNoteChange={setTripNote}
+        onTripFilesChange={setTripFiles}
+        onSubmit={submitTripForm}
+      />
+
+      <TripEditDialog
+        open={editTripOpen}
+        editTripName={editTripName}
+        editTripNote={editTripNote}
+        editTripFiles={editTripFiles}
+        editTripSaving={editTripSaving}
+        editTripHasImages={editTripHasImages}
+        editImageMode={editImageMode}
+        onClose={closeEditTripForm}
+        onEditTripNameChange={setEditTripName}
+        onEditTripNoteChange={setEditTripNote}
+        onEditTripFilesChange={setEditTripFiles}
+        onEditImageModeChange={setEditImageMode}
+        onSubmit={submitEditTripForm}
+      />
+
+      <MapContainer 
+        center={defaultCenter} 
+        zoom={13} 
+        minZoom={3}
+        maxZoom={18}
+        style={{ height: '100%', width: '100%' }}
+      >
+        <MapInstanceBridge onMapReady={setMapInstance} />
+        <TileLayer
+          url="http://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}"
+          subdomains={['1', '2', '3', '4']}
+          minZoom={3}
+          maxZoom={18}
+          attribution='&copy; <a href="https://ditu.amap.com/">Amap</a>'
+        />
+        
+        {/* 点击保存逻辑 */}
+        <MapClickHandler onMapClick={handleMapTripClick} userId={userId} onNotice={showNotice} />
+
+        {/* 搜索定位提示点（短暂显示） */}
+        {searchHintPosition && (
+          <Marker position={searchHintPosition} icon={searchHintIcon}>
+            <Popup>已定位到搜索位置</Popup>
+          </Marker>
+        )}
+
+        {/* 实时定位逻辑 */}
+        <LiveLocationTracker onOthersUpdate={setOthers} onMyPositionUpdate={setMyPosition} onMyAccuracyUpdate={setMyAccuracy} useGcjOffset={useGcjOffset} shareEnabled={isSharingEnabled} groupCode={groupCode} currentUserName={userName} currentUserId={userId} />
+
+        {/* 渲染：MySQL 里的永久足迹 */}
+        {savedTrips.map((trip) => (
+          (() => {
+            const tripPosition = toMapPosition(trip.lat, trip.lng, useGcjOffset);
+            const tripImages = parseTripImages(trip.photoUrl).map((image, index) => ({
+              src: image,
+              alt: `${trip.name}-${index + 1}`,
+            }));
+            return (
+          <Marker 
+            key={`trip-${trip.id}`} 
+            position={tripPosition}
+            icon={savedTripIcon}
+          >
+            <Popup>
+              <div className="min-w-[220px] space-y-2 p-1">
+                {tripImages.map((item, index) => (
+                  <button
+                    key={`${trip.id}-image-${index}`}
+                    type="button"
+                    onClick={() => openImagePreview(tripImages, index)}
+                    className="block w-full overflow-hidden rounded-md"
+                  >
+                    <img
+                      src={item.src}
+                      alt={item.alt}
+                      className="h-32 w-full cursor-zoom-in object-cover transition-opacity hover:opacity-90"
+                    />
+                  </button>
+                ))}
+                <div className="text-sm font-semibold text-slate-800">足迹</div>
+                <div className="text-sm font-medium text-slate-700">{trip.name}</div>
+                <p className="text-xs italic text-gray-500">{trip.note}</p>
+                <div className="text-[10px] text-gray-400">
+                  存入时间：{new Date(trip.createdAt).toLocaleString()}
+                </div>
+                <button
+                  onClick={() => openEditTripForm(trip)}
+                  className="w-full bg-[#7E9D82] hover:bg-[#6F8B73] text-white text-[11px] py-1 px-2 rounded shadow-sm transition-colors duration-200"
+                >
+                  修改此足迹
+                </button>
+                <button 
+                  onClick={() => requestDeleteTrip(trip.id)}
+                  className="w-full bg-red-500 hover:bg-red-600 text-white text-[11px] py-1 px-2 rounded shadow-sm transition-colors duration-200"
+                >
+                  删除此足迹
+                </button>
+              </div>
+            </Popup>
+          </Marker>
+            );
+          })()
+        ))}
+
+        {/* 渲染：Socket.io 在线其他用户 */}
+        {Object.keys(others).map((id) => {
+          if (id === socket.id) return null;
+          const { lat, lng, userName: otherUserName } = others[id];
+          const color = getColorForId(id);
+          return (
+            <Marker key={`live-${id}`} position={[lat, lng]} icon={createColoredIcon(color)}>
+              <Popup>
+                <div className="font-bold text-blue-600">{otherUserName || '神秘游民'}</div>
+                <div className="text-xs text-gray-400">正在实时共享位置</div>
+              </Popup>
+            </Marker>
+          );
+        })}
+      </MapContainer>
+
+      <BottomControlBar
+        groupCode={groupCode}
+        isSharingEnabled={isSharingEnabled}
+        locatePulse={locatePulse}
+        myAccuracy={myAccuracy}
+        onToggleGroupPanel={() => setGroupPanelOpen((prev) => !prev)}
+        onToggleSharing={toggleSharing}
+        onFocusMyLocation={focusMyLocation}
+      />
+
+      <GroupInvitePanel
+        open={groupPanelOpen}
+        groupCode={groupCode}
+        groupCodeInput={groupCodeInput}
+        joinDialogOpen={joinGroupDialogOpen}
+        copyHintMessage={copyHintMessage}
+        onClosePanel={() => setGroupPanelOpen(false)}
+        onCopyCode={copyGroupCode}
+        onOpenChat={() => {
+          setChatOpen(true);
+          setGroupPanelOpen(false);
+        }}
+        onCreateGroup={createGroup}
+        onLeaveGroup={leaveGroup}
+        onOpenJoinDialog={() => {
+          setJoinGroupDialogOpen(true);
+          setGroupCodeInput('');
+        }}
+        onCloseJoinDialog={() => setJoinGroupDialogOpen(false)}
+        onGroupCodeInputChange={setGroupCodeInput}
+        onJoinGroup={joinGroupByCode}
+      />
+
+      <GroupChatPanel
+        open={chatOpen}
+        groupCode={groupCode}
+        userName={userName}
+        chatMessages={chatMessages}
+        chatInput={chatInput}
+        chatSending={chatSending}
+        chatHasMore={chatHasMore}
+        chatLoadingMore={chatLoadingMore}
+        chatListRef={chatListRef}
+        onClose={() => setChatOpen(false)}
+        onChatInputChange={setChatInput}
+        onSend={sendGroupMessage}
+        onLoadMore={() => {
+          void loadOlderChatMessages();
+        }}
+      />
+
+      <NoticeDialog
+        open={Boolean(noticeMessage)}
+        message={noticeMessage}
+        copyValue={noticeCopyValue}
+        onCopyValue={(value) => {
+          void (async () => {
+            const copied = await copyTextToClipboard(value);
+            setCopyHintMessage(copied ? '邀请码已复制' : '复制失败，请手动复制邀请码');
+            setNoticeMessage(null);
+            setNoticeCopyValue(null);
+            setGroupPanelOpen(true);
+          })();
+        }}
+        onClose={() => {
+          setNoticeMessage(null);
+          setNoticeCopyValue(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        title="确认删除"
+        message="确定要永久删除这个足迹吗？"
+        confirmText="删除"
+        cancelText="取消"
+        confirmDisabled={deleteSubmitting}
+        onConfirm={() => {
+          void confirmDeleteTrip();
+        }}
+        onCancel={() => {
+          if (deleteSubmitting) return;
+          setDeleteConfirmOpen(false);
+          setPendingDeleteTripId(null);
+        }}
+      />
+
+      <ImagePreviewOverlay
+        activePreview={activePreview}
+        previewImagesLength={previewImages.length}
+        previewIndex={previewIndex}
+        previewControlsVisible={previewControlsVisible}
+        previewControlStyle={previewControlStyle}
+        onClose={closeImagePreview}
+        onRevealControls={revealPreviewControls}
+        onPrev={showPreviousPreview}
+        onNext={showNextPreview}
+      />
+    </div>
+  );
+}
