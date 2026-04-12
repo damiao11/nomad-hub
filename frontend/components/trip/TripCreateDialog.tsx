@@ -76,13 +76,19 @@ export default function TripCreateDialog({
               {tripFiles.length > 0 ? `已选择 ${tripFiles.length} 张图片` : '未选择文件'}
             </span>
           </div>
-          <div className="text-xs text-slate-500">最多上传 5 张，系统会自动压缩后再上传。</div>
+          <div className="text-xs text-slate-500">最多上传 3 张，系统会自动压缩后再上传。</div>
           <input
             id="trip-image-upload"
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/jpg,image/png,image/webp"
             multiple
-            onChange={(e) => onTripFilesChange(e.target.files ? Array.from(e.target.files) : [])}
+            onChange={(e) => {
+              const files = e.target.files ? Array.from(e.target.files) : [];
+              if (files.length > 3) {
+                window.alert('最多只能选择 3 张图片，系统将保留前 3 张。');
+              }
+              onTripFilesChange(files.slice(0, 3));
+            }}
             className="hidden"
           />
         </div>

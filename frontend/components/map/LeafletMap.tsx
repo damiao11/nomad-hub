@@ -130,13 +130,13 @@ type PreviewImageItem = {
   alt: string;
 };
 
-const MAX_IMAGE_EDGE_PX = 1920;
-const MIN_IMAGE_EDGE_PX = 960;
-const INITIAL_IMAGE_QUALITY = 0.82;
-const MIN_IMAGE_QUALITY = 0.52;
-const TARGET_IMAGE_BYTES = 2 * 1024 * 1024;
+const MAX_IMAGE_EDGE_PX = 1280;
+const MIN_IMAGE_EDGE_PX = 640;
+const INITIAL_IMAGE_QUALITY = 0.62;
+const MIN_IMAGE_QUALITY = 0.3;
+const TARGET_IMAGE_BYTES = 320 * 1024;
 const MAX_TOTAL_IMAGE_BYTES = 60 * 1024 * 1024;
-const MAX_UPLOAD_IMAGE_COUNT = 5;
+const MAX_UPLOAD_IMAGE_COUNT = 3;
 
 const isValidHttpUrl = (value: string) => {
   try {
@@ -247,10 +247,11 @@ const fileToBase64 = (file: File) => {
 };
 
 const filesToBase64Array = async (files: File[] | FileList) => {
-  const fileArray = Array.from(files);
-  if (fileArray.length > MAX_UPLOAD_IMAGE_COUNT) {
+  const originalArray = Array.from(files);
+  if (originalArray.length > MAX_UPLOAD_IMAGE_COUNT) {
     throw new Error(`最多可上传 ${MAX_UPLOAD_IMAGE_COUNT} 张图片`);
   }
+  const fileArray = originalArray.slice(0, MAX_UPLOAD_IMAGE_COUNT);
 
   const encoded = await Promise.all(fileArray.map((file) => fileToBase64(file)));
   const result = encoded.filter((item) => item.trim() !== '');
@@ -950,8 +951,15 @@ export default function LeafletMap() {
       }
 
       if (editImageMode === 'replace') {
+        const existingImages = parseTripImages(editingTripOriginalPhoto);
         const imageBase64List = editTripFiles.length > 0 ? await filesToBase64Array(editTripFiles) : [];
-        photoUrl = imageBase64List.length > 0 ? JSON.stringify(imageBase64List) : '';
+        const mergedImages = [...existingImages, ...imageBase64List];
+
+        if (mergedImages.length > MAX_UPLOAD_IMAGE_COUNT) {
+          throw new Error(`当前足迹最多可保存 ${MAX_UPLOAD_IMAGE_COUNT} 张图片，请先清空图片或减少新增数量`);
+        }
+
+        photoUrl = mergedImages.length > 0 ? JSON.stringify(mergedImages) : '';
       }
 
       const result = await updateTrip({
