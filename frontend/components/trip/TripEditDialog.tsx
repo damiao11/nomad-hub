@@ -136,7 +136,7 @@ export default function TripEditDialog({
                       {editTripFiles.length > 0 ? `已选择 ${editTripFiles.length} 张图片` : '未选择文件'}
                     </span>
                   </div>
-                  <div className="text-xs text-slate-500">系统会自动压缩图片后上传，建议单次不超过 12 张。</div>
+                  <div className="text-xs text-slate-500">系统会自动压缩图片后上传，最多选择 5 张。</div>
                   <input
                     id="edit-trip-image-upload"
                     type="file"

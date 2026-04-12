@@ -134,9 +134,9 @@ const MAX_IMAGE_EDGE_PX = 1920;
 const MIN_IMAGE_EDGE_PX = 960;
 const INITIAL_IMAGE_QUALITY = 0.82;
 const MIN_IMAGE_QUALITY = 0.52;
-const TARGET_IMAGE_BYTES = 900 * 1024;
-const MAX_TOTAL_IMAGE_BYTES = 24 * 1024 * 1024;
-const MAX_UPLOAD_IMAGE_COUNT = 12;
+const TARGET_IMAGE_BYTES = 2 * 1024 * 1024;
+const MAX_TOTAL_IMAGE_BYTES = 60 * 1024 * 1024;
+const MAX_UPLOAD_IMAGE_COUNT = 5;
 
 const isValidHttpUrl = (value: string) => {
   try {

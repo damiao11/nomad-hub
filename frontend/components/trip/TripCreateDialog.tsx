@@ -76,7 +76,7 @@ export default function TripCreateDialog({
               {tripFiles.length > 0 ? `已选择 ${tripFiles.length} 张图片` : '未选择文件'}
             </span>
           </div>
-          <div className="text-xs text-slate-500">建议单次不超过 12 张，系统会自动压缩后再上传。</div>
+          <div className="text-xs text-slate-500">最多上传 5 张，系统会自动压缩后再上传。</div>
           <input
             id="trip-image-upload"
             type="file"
