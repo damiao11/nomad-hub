@@ -27,6 +27,7 @@ export default function LoginPanel({
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const trimmedUsername = username.trim();
   const hasUsernameInput = trimmedUsername.length > 0;
@@ -58,12 +59,13 @@ export default function LoginPanel({
       onLogout();
       setUsername('');
       setPassword('');
+      setProfileOpen(false);
     }
   };
 
-  return (
-    <div className={isLoggedIn ? 'absolute right-3 z-[1000] rounded-xl border border-white/25 bg-white/55 p-3 shadow-sm backdrop-blur-md mobile-safe-top [--safe-top-base:5rem] md:right-4 md:top-4 md:[--safe-top-base:1rem]' : 'absolute left-1/2 top-1/2 z-[1000] -translate-x-1/2 -translate-y-1/2 bg-white p-4 rounded-lg shadow-lg'}>
-      {!isLoggedIn ? (
+  if (!isLoggedIn) {
+    return (
+      <div className="absolute left-1/2 top-1/2 z-[1000] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-lg">
         <div className="w-64 space-y-3">
           <h3 className="font-bold text-lg">登录/注册</h3>
           <input
@@ -110,10 +112,30 @@ export default function LoginPanel({
             </button>
           </div>
         </div>
-      ) : (
+      </div>
+    );
+  }
+
+  const displayName = userName || '游民';
+  const avatarText = displayName.slice(0, 1).toUpperCase();
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-label={profileOpen ? '收起个人面板' : '展开个人面板'}
+        onClick={() => setProfileOpen((prev) => !prev)}
+        className="absolute right-3 z-[1000] flex h-11 w-11 items-center justify-center rounded-full border border-white/70 bg-white/95 text-sm font-semibold text-[#6F8B73] shadow-sm backdrop-blur-sm mobile-safe-top [--safe-top-base:0.75rem] md:hidden"
+      >
+        {avatarText}
+      </button>
+
+      <div
+        className={`absolute right-3 z-[1000] rounded-xl border border-white/25 bg-white/55 p-3 shadow-sm backdrop-blur-md transition-all duration-200 mobile-safe-top [--safe-top-base:3.85rem] md:right-4 md:top-4 md:[--safe-top-base:1rem] ${profileOpen ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 -translate-y-1 pointer-events-none md:opacity-100 md:translate-y-0 md:pointer-events-auto'}`}
+      >
         <div className="space-y-2">
           <div className="text-sm text-slate-700">
-            <p className="font-semibold">欢迎，{userName}</p>
+            <p className="font-semibold">欢迎，{displayName}</p>
           </div>
           <button
             onClick={handleLogout}
@@ -122,7 +144,7 @@ export default function LoginPanel({
             退出登录
           </button>
         </div>
-      )}
-    </div>
+      </div>
+    </>
   );
 }
