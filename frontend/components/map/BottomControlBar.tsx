@@ -21,7 +21,7 @@ export default function BottomControlBar({
 }: BottomControlBarProps) {
   return (
     <>
-      <div className="absolute bottom-6 right-20 z-[1000] flex items-center gap-2">
+      <div className="absolute right-20 z-[1000] flex items-center gap-2 mobile-safe-bottom [--safe-bottom-base:1.5rem]">
         <button
           onClick={onToggleGroupPanel}
           aria-label="群组设置"
@@ -54,7 +54,7 @@ export default function BottomControlBar({
         onClick={onFocusMyLocation}
         aria-label="定位到我"
         title="定位到我"
-        className="absolute bottom-6 right-4 z-[1000] flex h-12 w-12 items-center justify-center rounded-full border border-white/70 bg-white/95 text-[#6F8B73] backdrop-blur-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-white active:scale-95 active:shadow-md"
+        className="absolute right-4 z-[1000] flex h-12 w-12 items-center justify-center rounded-full border border-white/70 bg-white/95 text-[#6F8B73] backdrop-blur-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-white active:scale-95 active:shadow-md mobile-safe-bottom [--safe-bottom-base:1.5rem]"
       >
         {locatePulse && (
           <span
@@ -82,7 +82,7 @@ export default function BottomControlBar({
         </svg>
       </button>
 
-      <div className="absolute bottom-20 right-4 z-[1000] rounded-lg border border-white/60 bg-white/90 px-3 py-1.5 text-xs text-slate-700 shadow-sm backdrop-blur-sm">
+      <div className="absolute right-4 z-[1000] rounded-lg border border-white/60 bg-white/90 px-3 py-1.5 text-xs text-slate-700 shadow-sm backdrop-blur-sm mobile-safe-bottom [--safe-bottom-base:5rem]">
         定位精度：{myAccuracy !== null ? `${Math.round(myAccuracy)} m` : '获取中'}
       </div>
     </>

@@ -23,7 +23,7 @@ export default function MapSearchBar({
   onSelectResult,
 }: MapSearchBarProps) {
   return (
-    <div className="absolute top-5 left-5 z-[1000] w-[360px] max-w-[calc(100%-2.5rem)]">
+    <div className="absolute left-3 right-3 top-3 z-[1000] mobile-safe-top [--safe-top-base:0.75rem] md:left-5 md:right-auto md:top-5 md:w-[360px] md:max-w-[calc(100%-2.5rem)]">
       <div className="flex items-center overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-black/10">
         <div className="pl-3 text-gray-500">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">

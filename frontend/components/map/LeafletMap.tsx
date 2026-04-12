@@ -22,7 +22,7 @@ import { useGroupInvite } from '@/hooks/useGroupInvite';
 import { useAuth } from '@/hooks/useAuth';
 import { useTrip } from '@/hooks/useTrip';
 
-const API_BASE_URL = 'http://192.168.137.1:4000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
 const SOCKET_PROBE_URL = `${API_BASE_URL}/socket.io/?EIO=4&transport=polling`;
 const socket = io(API_BASE_URL, {
   autoConnect: false,
@@ -294,6 +294,8 @@ function MapInstanceBridge({ onMapReady }: { onMapReady: (map: L.Map) => void })
   const map = useMap();
 
   useEffect(() => {
+    // Keep tile source attribution while removing Leaflet brand prefix.
+    map.attributionControl.setPrefix(false);
     onMapReady(map);
   }, [map, onMapReady]);
 
@@ -975,7 +977,7 @@ export default function LeafletMap() {
   const editTripHasImages = parseTripImages(editingTripOriginalPhoto).length > 0;
 
   return (
-    <div className="h-full w-full relative">
+    <div className="map-fullscreen relative">
       <style jsx global>{`
         .leaflet-div-icon.saved-trip-div-icon,
         .leaflet-div-icon.custom-div-icon {
@@ -1089,11 +1091,12 @@ export default function LeafletMap() {
         zoom={13} 
         minZoom={3}
         maxZoom={18}
+        zoomControl={false}
         style={{ height: '100%', width: '100%' }}
       >
         <MapInstanceBridge onMapReady={setMapInstance} />
         <TileLayer
-          url="http://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}"
+          url="https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}"
           subdomains={['1', '2', '3', '4']}
           minZoom={3}
           maxZoom={18}

@@ -77,3 +77,24 @@ body {
   0% { transform: scale(0.9); opacity: 1; }
   100% { transform: scale(1.4); opacity: 0; }
 }
+
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
+.mobile-safe-top {
+  top: calc(var(--safe-top-base, 0.75rem) + var(--safe-top));
+}
+
+.mobile-safe-bottom {
+  bottom: calc(var(--safe-bottom-base, 1rem) + var(--safe-bottom));
+}
+
+.map-fullscreen {
+  height: 100vh;
+  height: 100dvh;
+  width: 100%;
+}
