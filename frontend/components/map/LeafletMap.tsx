@@ -130,6 +130,14 @@ type PreviewImageItem = {
   alt: string;
 };
 
+const MAX_IMAGE_EDGE_PX = 1920;
+const MIN_IMAGE_EDGE_PX = 960;
+const INITIAL_IMAGE_QUALITY = 0.82;
+const MIN_IMAGE_QUALITY = 0.52;
+const TARGET_IMAGE_BYTES = 900 * 1024;
+const MAX_TOTAL_IMAGE_BYTES = 24 * 1024 * 1024;
+const MAX_UPLOAD_IMAGE_COUNT = 12;
+
 const isValidHttpUrl = (value: string) => {
   try {
     const url = new URL(value);
@@ -139,7 +147,22 @@ const isValidHttpUrl = (value: string) => {
   }
 };
 
-const compressImageFile = (file: File, maxSide = 1600, quality = 0.78) => {
+const estimateDataUrlBytes = (dataUrl: string) => {
+  const commaIndex = dataUrl.indexOf(',');
+  if (commaIndex < 0) return dataUrl.length;
+  const base64Length = dataUrl.length - commaIndex - 1;
+  return Math.floor((base64Length * 3) / 4);
+};
+
+const getScaledSize = (width: number, height: number, maxSide: number) => {
+  const scale = Math.min(1, maxSide / Math.max(width, height));
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+};
+
+const compressImageFile = (file: File, maxSide = MAX_IMAGE_EDGE_PX, quality = INITIAL_IMAGE_QUALITY) => {
   return new Promise<string>((resolve, reject) => {
     if (!file.type.startsWith('image/')) {
       reject(new Error('仅支持图片文件'));
@@ -152,14 +175,7 @@ const compressImageFile = (file: File, maxSide = 1600, quality = 0.78) => {
     image.onload = () => {
       const width = image.naturalWidth;
       const height = image.naturalHeight;
-      const scale = Math.min(1, maxSide / Math.max(width, height));
-      const targetWidth = Math.max(1, Math.round(width * scale));
-      const targetHeight = Math.max(1, Math.round(height * scale));
-
       const canvas = document.createElement('canvas');
-      canvas.width = targetWidth;
-      canvas.height = targetHeight;
-
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         URL.revokeObjectURL(objectUrl);
@@ -167,10 +183,41 @@ const compressImageFile = (file: File, maxSide = 1600, quality = 0.78) => {
         return;
       }
 
-      ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
-      const dataUrl = canvas.toDataURL('image/jpeg', quality);
+      let currentMaxSide = maxSide;
+      let currentQuality = quality;
+      let bestDataUrl = '';
+
+      while (true) {
+        const targetSize = getScaledSize(width, height, currentMaxSide);
+        canvas.width = targetSize.width;
+        canvas.height = targetSize.height;
+        ctx.clearRect(0, 0, targetSize.width, targetSize.height);
+        ctx.drawImage(image, 0, 0, targetSize.width, targetSize.height);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', currentQuality);
+        bestDataUrl = dataUrl;
+        const bytes = estimateDataUrlBytes(dataUrl);
+
+        if (bytes <= TARGET_IMAGE_BYTES) {
+          break;
+        }
+
+        if (currentQuality > MIN_IMAGE_QUALITY) {
+          currentQuality = Math.max(MIN_IMAGE_QUALITY, currentQuality - 0.08);
+          continue;
+        }
+
+        if (currentMaxSide > MIN_IMAGE_EDGE_PX) {
+          currentMaxSide = Math.max(MIN_IMAGE_EDGE_PX, Math.round(currentMaxSide * 0.85));
+          currentQuality = INITIAL_IMAGE_QUALITY;
+          continue;
+        }
+
+        break;
+      }
+
       URL.revokeObjectURL(objectUrl);
-      resolve(dataUrl);
+      resolve(bestDataUrl);
     };
 
     image.onerror = () => {
@@ -187,6 +234,10 @@ const fileToBase64 = (file: File) => {
     compressImageFile(file)
       .then(resolve)
       .catch(() => {
+        if (file.size > 2 * 1024 * 1024) {
+          reject(new Error('图片压缩失败，请更换图片或减少图片数量'));
+          return;
+        }
         const reader = new FileReader();
         reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
         reader.onerror = () => reject(new Error('文件读取失败'));
@@ -197,8 +248,18 @@ const fileToBase64 = (file: File) => {
 
 const filesToBase64Array = async (files: File[] | FileList) => {
   const fileArray = Array.from(files);
+  if (fileArray.length > MAX_UPLOAD_IMAGE_COUNT) {
+    throw new Error(`最多可上传 ${MAX_UPLOAD_IMAGE_COUNT} 张图片`);
+  }
+
   const encoded = await Promise.all(fileArray.map((file) => fileToBase64(file)));
-  return encoded.filter((item) => item.trim() !== '');
+  const result = encoded.filter((item) => item.trim() !== '');
+  const totalBytes = result.reduce((sum, item) => sum + estimateDataUrlBytes(item), 0);
+  if (totalBytes > MAX_TOTAL_IMAGE_BYTES) {
+    throw new Error('图片总大小过大，请减少图片数量或使用更小图片');
+  }
+
+  return result;
 };
 
 const parseTripImages = (value: unknown): string[] => {
@@ -220,6 +281,13 @@ const parseTripImages = (value: unknown): string[] => {
   }
 
   return [];
+};
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return fallback;
 };
 
 const outOfChina = (lat: number, lng: number) => {
@@ -850,7 +918,7 @@ export default function LeafletMap() {
       }
     } catch (error) {
       console.error('保存失败:', error);
-      showNotice('数据库连接失败，请检查后端');
+      showNotice(getErrorMessage(error, '数据库连接失败，请检查后端'));
     } finally {
       setTripSaving(false);
     }
@@ -902,7 +970,7 @@ export default function LeafletMap() {
       }
     } catch (error) {
       console.error('修改失败:', error);
-      showNotice('数据库连接失败，请检查后端');
+      showNotice(getErrorMessage(error, '数据库连接失败，请检查后端'));
     } finally {
       setEditTripSaving(false);
     }

@@ -64,7 +64,7 @@ export default function TripCreateDialog({
         />
 
         <div className="space-y-1">
-          <label className="block text-sm text-slate-700">图片（可选，可多选）</label>
+          <label className="block text-sm text-slate-700">图片（可选，可多选，自动压缩）</label>
           <div className="flex items-center gap-3">
             <label
               htmlFor="trip-image-upload"
@@ -76,6 +76,7 @@ export default function TripCreateDialog({
               {tripFiles.length > 0 ? `已选择 ${tripFiles.length} 张图片` : '未选择文件'}
             </span>
           </div>
+          <div className="text-xs text-slate-500">建议单次不超过 12 张，系统会自动压缩后再上传。</div>
           <input
             id="trip-image-upload"
             type="file"

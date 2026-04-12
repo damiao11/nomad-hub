@@ -12,8 +12,8 @@ const createApp = () => {
     origin: API_ORIGINS,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   }));
-  app.use(express.json({ limit: '100mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '100mb' }));
+  app.use(express.json({ limit: '200mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '200mb' }));
 
   registerAuthRoutes(app);
   registerSearchRoutes(app);
