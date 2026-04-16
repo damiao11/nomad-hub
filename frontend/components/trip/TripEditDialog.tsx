@@ -7,6 +7,8 @@ type TripEditDialogProps = {
   editTripFiles: File[];
   editTripSaving: boolean;
   editTripHasImages: boolean;
+  existingImageCount: number;
+  maxImageCount: number;
   editImageMode: 'keep' | 'replace' | 'clear';
   onClose: () => void;
   onEditTripNameChange: (value: string) => void;
@@ -23,6 +25,8 @@ export default function TripEditDialog({
   editTripFiles,
   editTripSaving,
   editTripHasImages,
+  existingImageCount,
+  maxImageCount,
   editImageMode,
   onClose,
   onEditTripNameChange,
@@ -34,6 +38,25 @@ export default function TripEditDialog({
   if (!open) {
     return null;
   }
+
+  const availableSlots = Math.max(0, maxImageCount - existingImageCount);
+
+  const handleEditFileSelection = (selected: FileList | null) => {
+    const files = selected ? Array.from(selected) : [];
+    const selectLimit = editTripHasImages ? availableSlots : maxImageCount;
+
+    if (selectLimit <= 0) {
+      window.alert('当前已达到 3 张上限，如需继续上传请先清空图片。');
+      onEditTripFilesChange([]);
+      return;
+    }
+
+    if (files.length > selectLimit) {
+      window.alert(`当前最多还能新增 ${selectLimit} 张，系统将保留前 ${selectLimit} 张。`);
+    }
+
+    onEditTripFilesChange(files.slice(0, selectLimit));
+  };
 
   return (
     <div className="absolute inset-0 z-[1100] flex items-center justify-center bg-black/35 p-4">
@@ -91,11 +114,7 @@ export default function TripEditDialog({
                 accept="image/jpeg,image/jpg,image/png,image/webp"
                 multiple
                 onChange={(e) => {
-                  const files = e.target.files ? Array.from(e.target.files) : [];
-                  if (files.length > 3) {
-                    window.alert('最多只能选择 3 张图片，系统将保留前 3 张。');
-                  }
-                  onEditTripFilesChange(files.slice(0, 3));
+                  handleEditFileSelection(e.target.files);
                   onEditImageModeChange('replace');
                 }}
                 className="hidden"
@@ -140,19 +159,15 @@ export default function TripEditDialog({
                       {editTripFiles.length > 0 ? `已选择 ${editTripFiles.length} 张图片` : '未选择文件'}
                     </span>
                   </div>
-                  <div className="text-xs text-slate-500">系统会自动压缩图片后上传，最多选择 3 张。</div>
+                  <div className="text-xs text-slate-500">
+                    系统会自动压缩图片后上传，当前已有 {existingImageCount} 张，还可新增 {availableSlots} 张（总上限 {maxImageCount} 张）。
+                  </div>
                   <input
                     id="edit-trip-image-upload"
                     type="file"
                     accept="image/jpeg,image/jpg,image/png,image/webp"
                     multiple
-                    onChange={(e) => {
-                      const files = e.target.files ? Array.from(e.target.files) : [];
-                      if (files.length > 3) {
-                        window.alert('最多只能选择 3 张图片，系统将保留前 3 张。');
-                      }
-                      onEditTripFilesChange(files.slice(0, 3));
-                    }}
+                    onChange={(e) => handleEditFileSelection(e.target.files)}
                     className="hidden"
                   />
                 </div>

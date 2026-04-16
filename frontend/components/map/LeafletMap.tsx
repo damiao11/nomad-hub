@@ -22,7 +22,7 @@ import { useGroupInvite } from '@/hooks/useGroupInvite';
 import { useAuth } from '@/hooks/useAuth';
 import { useTrip } from '@/hooks/useTrip';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || '';
 const SOCKET_PROBE_URL = `${API_BASE_URL}/socket.io/?EIO=4&transport=polling`;
 const socket = io(API_BASE_URL, {
   autoConnect: false,
@@ -282,6 +282,19 @@ const parseTripImages = (value: unknown): string[] => {
   }
 
   return [];
+};
+
+const normalizeTripPhotoPayload = (value: unknown): string => {
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    const filtered = value.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
+    return filtered.length > 0 ? JSON.stringify(filtered) : '';
+  }
+
+  return '';
 };
 
 const getErrorMessage = (error: unknown, fallback: string) => {
@@ -864,7 +877,7 @@ export default function LeafletMap() {
     setEditingTripId(trip.id);
     setEditTripName(typeof trip.name === 'string' ? trip.name : '');
     setEditTripNote(typeof trip.note === 'string' ? trip.note : '');
-    setEditingTripOriginalPhoto(typeof trip.photoUrl === 'string' ? trip.photoUrl : '');
+    setEditingTripOriginalPhoto(normalizeTripPhotoPayload(trip.photoUrl));
     setEditTripFiles([]);
     setEditImageMode('keep');
     setEditTripOpen(true);
@@ -1050,7 +1063,8 @@ export default function LeafletMap() {
     }
   };
 
-  const editTripHasImages = parseTripImages(editingTripOriginalPhoto).length > 0;
+  const editingTripOriginalImages = parseTripImages(editingTripOriginalPhoto);
+  const editTripHasImages = editingTripOriginalImages.length > 0;
 
   return (
     <div className="map-fullscreen relative">
@@ -1153,6 +1167,8 @@ export default function LeafletMap() {
         editTripFiles={editTripFiles}
         editTripSaving={editTripSaving}
         editTripHasImages={editTripHasImages}
+        existingImageCount={editingTripOriginalImages.length}
+        maxImageCount={MAX_UPLOAD_IMAGE_COUNT}
         editImageMode={editImageMode}
         onClose={closeEditTripForm}
         onEditTripNameChange={setEditTripName}
