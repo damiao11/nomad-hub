@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { getUsernameRuleError, REGISTER_USERNAME_ALLOWED_CHARS_RULE } from '@/lib/auth/authRules';
+import { getUsernameRuleError, getEmailRuleError, REGISTER_USERNAME_ALLOWED_CHARS_RULE } from '@/lib/auth/authRules';
 
 type LoginPanelProps = {
   apiBaseUrl: string;
@@ -9,7 +9,7 @@ type LoginPanelProps = {
   userName: string | null;
   onLoginSuccess: (userId: string, userName: string) => void;
   onLogout: () => void;
-  loginOrAutoRegister: (apiBaseUrl: string, userName: string, password: string) => Promise<
+  loginOrAutoRegister: (apiBaseUrl: string, userName: string, password: string, email?: string) => Promise<
     | { ok: true; userId: string; userName: string }
     | { ok: false; error: string }
   >;
@@ -25,9 +25,11 @@ export default function LoginPanel({
 }: LoginPanelProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [profileOpen, setProfileOpen] = useState(false);
+  const [showEmailInput, setShowEmailInput] = useState(false);
 
   const trimmedUsername = username.trim();
   const hasUsernameInput = trimmedUsername.length > 0;
@@ -40,15 +42,21 @@ export default function LoginPanel({
     setLoading(true);
     setErrorMsg('');
     try {
-      const result = await loginOrAutoRegister(apiBaseUrl, username, password);
+      const result = await loginOrAutoRegister(apiBaseUrl, username, password, email);
       if (!result.ok) {
         setErrorMsg(result.error);
+        // 如果后端提示需要邮箱或邮箱错误，显示邮箱输入框
+        if (result.error.includes('邮箱') || result.error.includes('注册')) {
+          setShowEmailInput(true);
+        }
         return;
       }
 
       onLoginSuccess(result.userId, result.userName);
       setUsername('');
       setPassword('');
+      setEmail('');
+      setShowEmailInput(false);
     } finally {
       setLoading(false);
     }
@@ -99,7 +107,29 @@ export default function LoginPanel({
             }}
             className="w-full border border-gray-300 rounded px-3 py-2 text-xs placeholder:text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          {errorMsg && <div className="text-red-500 text-sm">{errorMsg}</div>}
+          {showEmailInput && (
+            <>
+              <input
+                type="email"
+                placeholder="注册专用：谷歌/网易/QQ邮箱"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    void handleAuth();
+                  }
+                }}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-xs placeholder:text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 animate-in fade-in duration-300"
+              />
+              {email && getEmailRuleError(email) && (
+                <div className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] text-amber-700">
+                  支持：@gmail.com, @163.com, @126.com, @qq.com
+                </div>
+              )}
+            </>
+          )}
+          {errorMsg && <div className="text-red-500 text-xs">{errorMsg}</div>}
           <div className="flex gap-2">
             <button
               onClick={() => {

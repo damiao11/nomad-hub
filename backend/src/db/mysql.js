@@ -29,8 +29,26 @@ const ensureTripPhotoLongText = async () => {
   }
 };
 
+const ensureUserEmailColumn = async () => {
+  let conn;
+  try {
+    conn = await createConnection();
+    // 检查列是否存在
+    const [columns] = await conn.execute('SHOW COLUMNS FROM User LIKE "email"');
+    if (columns.length === 0) {
+      await conn.execute('ALTER TABLE User ADD COLUMN email VARCHAR(255) UNIQUE AFTER userName');
+      console.log('✅ 已为 User 表添加 email 列');
+    }
+  } catch (err) {
+    console.warn('⚠️ 自动为 User 表添加 email 列失败：', err.message);
+  } finally {
+    if (conn) await conn.end();
+  }
+};
+
 module.exports = {
   createConnection,
   normalizePhotoPayload,
   ensureTripPhotoLongText,
+  ensureUserEmailColumn,
 };

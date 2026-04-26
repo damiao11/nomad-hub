@@ -38,16 +38,17 @@ export function useAuth() {
     localStorage.removeItem('userName');
   };
 
-  const loginOrAutoRegister = async (apiBaseUrl: string, inputUserName: string, inputPassword: string) => {
+  const loginOrAutoRegister = async (apiBaseUrl: string, inputUserName: string, inputPassword: string, inputEmail: string = '') => {
     const userName = inputUserName.trim();
     const password = inputPassword;
+    const email = inputEmail.trim();
 
     if (!userName && !password.trim()) {
-      return { ok: false as const, error: '请输入用户名和密码' };
+      return { ok: false as const, error: '请输入账号和密码' };
     }
 
     if (!userName) {
-      return { ok: false as const, error: '请输入用户名' };
+      return { ok: false as const, error: '请输入账号' };
     }
 
     if (!password.trim()) {
@@ -63,13 +64,20 @@ export function useAuth() {
     const registerRequest = async () => fetch(`${apiBaseUrl}/api/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userName, password }),
+      body: JSON.stringify({ userName, password, email }),
     });
 
     try {
       let loginResponse = await loginRequest();
 
       if (!loginResponse.ok) {
+        // 如果登录失败且没有输入邮箱，可能需要注册（此处如果是第一次尝试且没有邮箱，会因为后端校验 email 失败而提示）
+        // 逻辑调整：如果是登录失败，且我们是自动注册模式，我们需要 email
+        if (!email) {
+          const data = await loginResponse.json().catch(() => ({}));
+          return { ok: false as const, error: data.error || '账号或密码错误（若注册请补充邮箱）' };
+        }
+
         const usernameRuleError = getUsernameRuleError(userName);
         if (usernameRuleError) {
           return { ok: false as const, error: usernameRuleError };
