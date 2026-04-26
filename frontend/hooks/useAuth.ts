@@ -71,11 +71,10 @@ export function useAuth() {
       let loginResponse = await loginRequest();
 
       if (!loginResponse.ok) {
-        // 如果登录失败且没有输入邮箱，可能需要注册（此处如果是第一次尝试且没有邮箱，会因为后端校验 email 失败而提示）
-        // 逻辑调整：如果是登录失败，且我们是自动注册模式，我们需要 email
-        if (!email) {
+        // 强制必须有邮箱才能尝试注册
+        if (!email && !REGISTER_EMAIL_RULE.test(userName)) {
           const data = await loginResponse.json().catch(() => ({}));
-          return { ok: false as const, error: data.error || '账号或密码错误（若注册请补充邮箱）' };
+          return { ok: false as const, error: data.error || '账号或密码错误（注册请填写邮箱）' };
         }
 
         const usernameRuleError = getUsernameRuleError(userName);

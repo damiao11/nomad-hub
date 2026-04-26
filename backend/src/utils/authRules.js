@@ -8,6 +8,10 @@ const getUsernameRuleError = (value) => {
   if (trimmed.length < 2 || trimmed.length > 20) {
     return '用户名需为 2-20 位';
   }
+  // 如果用户名符合邮箱格式，允许通过用户名校验（后续由 email 规则统一处理）
+  if (REGISTER_EMAIL_RULE.test(trimmed)) {
+    return null;
+  }
   if (!REGISTER_USERNAME_RULE.test(trimmed)) {
     return '用户名仅支持中文、字母、数字和下划线';
   }

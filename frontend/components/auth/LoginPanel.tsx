@@ -42,17 +42,28 @@ export default function LoginPanel({
     setLoading(true);
     setErrorMsg('');
     try {
-      const result = await loginOrAutoRegister(apiBaseUrl, username, password, email);
-      if (!result.ok) {
-        setErrorMsg(result.error);
-        // 如果后端提示需要邮箱或邮箱错误，显示邮箱输入框
-        if (result.error.includes('邮箱') || result.error.includes('注册')) {
-          setShowEmailInput(true);
+      // 强制：如果没显示邮箱输入框，且用户名不是邮箱格式，先提示
+      if (!showEmailInput && !REGISTER_EMAIL_RULE.test(username)) {
+        // 先尝试正常登录
+        const result = await loginOrAutoRegister(apiBaseUrl, username, password, email);
+        if (!result.ok) {
+          setErrorMsg(result.error);
+          if (result.error.includes('账号') || result.error.includes('注册')) {
+            setShowEmailInput(true);
+          }
+          return;
         }
-        return;
+        onLoginSuccess(result.userId, result.userName);
+      } else {
+        // 已经显示了邮箱框，或者用户名就是邮箱，直接提交
+        const result = await loginOrAutoRegister(apiBaseUrl, username, password, email || (REGISTER_EMAIL_RULE.test(username) ? username : ''));
+        if (!result.ok) {
+          setErrorMsg(result.error);
+          return;
+        }
+        onLoginSuccess(result.userId, result.userName);
       }
 
-      onLoginSuccess(result.userId, result.userName);
       setUsername('');
       setPassword('');
       setEmail('');

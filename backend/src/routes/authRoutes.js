@@ -12,6 +12,11 @@ const registerAuthRoutes = (app) => {
       return res.status(400).json({ error: '用户名、密码和邮箱不能为空' });
     }
 
+    // 强制注册必须使用邮箱作为用户名或者提供专门的邮箱
+    if (!REGISTER_EMAIL_RULE.test(safeEmail) && !REGISTER_EMAIL_RULE.test(safeUserName)) {
+      return res.status(400).json({ error: '注册必须使用有效的邮箱地址' });
+    }
+
     const emailRuleError = getEmailRuleError(safeEmail);
     if (emailRuleError) {
       return res.status(400).json({ error: emailRuleError });
