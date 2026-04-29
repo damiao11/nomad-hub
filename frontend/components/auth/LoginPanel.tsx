@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { getUsernameRuleError, getEmailRuleError, REGISTER_USERNAME_ALLOWED_CHARS_RULE } from '@/lib/auth/authRules';
+import { getUsernameRuleError, getEmailRuleError, REGISTER_USERNAME_ALLOWED_CHARS_RULE, REGISTER_EMAIL_RULE } from '@/lib/auth/authRules';
 
 type LoginPanelProps = {
   apiBaseUrl: string;

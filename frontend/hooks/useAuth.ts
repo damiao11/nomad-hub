@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { REGISTER_PASSWORD_RULE, getUsernameRuleError } from '@/lib/auth/authRules';
+import { REGISTER_PASSWORD_RULE, REGISTER_EMAIL_RULE, getUsernameRuleError } from '@/lib/auth/authRules';
 
 type AuthState = {
   isLoggedIn: boolean;
