@@ -5,37 +5,47 @@ type AuthState = {
   isLoggedIn: boolean;
   userId: string | null;
   userName: string | null;
+  avatar: string | null;
 };
 
 export function useAuth() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
+  const [avatar, setAvatar] = useState<string | null>(null);
 
   useEffect(() => {
     const storedUserId = localStorage.getItem('userId');
     const storedUserName = localStorage.getItem('userName');
+    const storedAvatar = localStorage.getItem('avatar');
     if (storedUserId && storedUserName) {
       setUserId(storedUserId);
       setUserName(storedUserName);
+      setAvatar(storedAvatar || null);
       setIsLoggedIn(true);
     }
   }, []);
 
-  const applyLogin = (nextUserId: string, nextUserName: string) => {
+  const applyLogin = (nextUserId: string, nextUserName: string, nextAvatar?: string) => {
     setUserId(nextUserId);
     setUserName(nextUserName);
+    setAvatar(nextAvatar || null);
     setIsLoggedIn(true);
     localStorage.setItem('userId', nextUserId);
     localStorage.setItem('userName', nextUserName);
+    if (nextAvatar) {
+      localStorage.setItem('avatar', nextAvatar);
+    }
   };
 
   const clearAuth = () => {
     setUserId(null);
     setUserName(null);
+    setAvatar(null);
     setIsLoggedIn(false);
     localStorage.removeItem('userId');
     localStorage.removeItem('userName');
+    localStorage.removeItem('avatar');
   };
 
   const loginOrAutoRegister = async (apiBaseUrl: string, inputEmail: string, inputPassword: string) => {
@@ -93,7 +103,42 @@ export function useAuth() {
         ok: true as const,
         userId: String(data.id),
         userName: String(data.userName || email),
+        avatar: typeof data.avatar === 'string' ? data.avatar : '',
       };
+    } catch {
+      return { ok: false as const, error: '网络错误' };
+    }
+  };
+
+  const updateProfile = async (apiBaseUrl: string, updates: { userName?: string; avatar?: string }) => {
+    if (!userId) {
+      return { ok: false as const, error: '请先登录' };
+    }
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/user/profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, ...updates }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        return { ok: false as const, error: data.error || '修改失败' };
+      }
+
+      const data = await response.json();
+      const user = data.user;
+      setUserName(user.userName);
+      setAvatar(user.avatar || null);
+      localStorage.setItem('userName', user.userName);
+      if (user.avatar) {
+        localStorage.setItem('avatar', user.avatar);
+      } else {
+        localStorage.removeItem('avatar');
+      }
+
+      return { ok: true as const, userName: user.userName, avatar: user.avatar || '' };
     } catch {
       return { ok: false as const, error: '网络错误' };
     }
@@ -103,15 +148,18 @@ export function useAuth() {
     isLoggedIn,
     userId,
     userName,
+    avatar,
   });
 
   return {
     isLoggedIn,
     userId,
     userName,
+    avatar,
     applyLogin,
     clearAuth,
     loginOrAutoRegister,
+    updateProfile,
     getAuthState,
   };
 }

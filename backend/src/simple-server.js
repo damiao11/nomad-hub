@@ -3,7 +3,7 @@ require('dotenv').config();
 const { createApp } = require('./app');
 const { createServer } = require('./server');
 const { SERVER_HOST, SERVER_PORT } = require('./config/constants');
-const { ensureTripPhotoLongText, ensureUserEmailColumn } = require('./db/mysql');
+const { ensureTripPhotoLongText, ensureUserEmailColumn, ensureUserAvatarColumn } = require('./db/mysql');
 
 const app = createApp();
 const { server } = createServer(app);
@@ -18,3 +18,4 @@ server.listen(SERVER_PORT, SERVER_HOST, () => {
 
 ensureTripPhotoLongText();
 ensureUserEmailColumn();
+ensureUserAvatarColumn();

@@ -33,7 +33,6 @@ const ensureUserEmailColumn = async () => {
   let conn;
   try {
     conn = await createConnection();
-    // 检查列是否存在
     const [columns] = await conn.execute('SHOW COLUMNS FROM User LIKE "email"');
     if (columns.length === 0) {
       await conn.execute('ALTER TABLE User ADD COLUMN email VARCHAR(255) UNIQUE AFTER userName');
@@ -46,9 +45,26 @@ const ensureUserEmailColumn = async () => {
   }
 };
 
+const ensureUserAvatarColumn = async () => {
+  let conn;
+  try {
+    conn = await createConnection();
+    const [columns] = await conn.execute('SHOW COLUMNS FROM User LIKE "avatar"');
+    if (columns.length === 0) {
+      await conn.execute('ALTER TABLE User ADD COLUMN avatar LONGTEXT NULL AFTER email');
+      console.log('✅ 已为 User 表添加 avatar 列');
+    }
+  } catch (err) {
+    console.warn('⚠️ 自动为 User 表添加 avatar 列失败：', err.message);
+  } finally {
+    if (conn) await conn.end();
+  }
+};
+
 module.exports = {
   createConnection,
   normalizePhotoPayload,
   ensureTripPhotoLongText,
   ensureUserEmailColumn,
+  ensureUserAvatarColumn,
 };

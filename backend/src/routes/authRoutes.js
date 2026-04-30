@@ -47,10 +47,10 @@ const registerAuthRoutes = (app) => {
 
       await conn.execute('INSERT INTO User (userName, password, email) VALUES (?, ?, ?)', [userName, safePassword, safeEmail]);
 
-      const [users] = await conn.execute('SELECT id, userName FROM User WHERE email = ?', [safeEmail]);
+      const [users] = await conn.execute('SELECT id, userName, IFNULL(avatar, "") AS avatar FROM User WHERE email = ?', [safeEmail]);
       const user = users[0];
 
-      res.json({ success: true, id: user.id, userName: user.userName, message: '注册成功' });
+      res.json({ success: true, id: user.id, userName: user.userName, avatar: user.avatar, message: '注册成功' });
     } catch (err) {
       res.status(500).json({ error: err.message });
     } finally {
@@ -69,7 +69,7 @@ const registerAuthRoutes = (app) => {
     try {
       conn = await createConnection();
       const [users] = await conn.execute(
-        'SELECT id, userName FROM User WHERE email = ? AND password = ?',
+        'SELECT id, userName, IFNULL(avatar, "") AS avatar FROM User WHERE email = ? AND password = ?',
         [email, password]
       );
 
@@ -78,7 +78,61 @@ const registerAuthRoutes = (app) => {
       }
 
       const user = users[0];
-      res.json({ success: true, id: user.id, userName: user.userName });
+      res.json({ success: true, id: user.id, userName: user.userName, avatar: user.avatar });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    } finally {
+      if (conn) await conn.end();
+    }
+  });
+};
+
+  app.put('/api/user/profile', async (req, res) => {
+    const { userId, userName, avatar } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: '必须提供 userId' });
+    }
+
+    let conn;
+    try {
+      conn = await createConnection();
+
+      const [users] = await conn.execute('SELECT * FROM User WHERE id = ?', [userId]);
+      if (users.length === 0) {
+        return res.status(404).json({ error: '用户不存在' });
+      }
+
+      const updates = [];
+      const values = [];
+
+      if (typeof userName === 'string' && userName.trim() !== '') {
+        const safeName = userName.trim();
+        if (safeName.length < 2 || safeName.length > 20) {
+          return res.status(400).json({ error: '用户名需为 2-20 位' });
+        }
+        const [dup] = await conn.execute('SELECT id FROM User WHERE userName = ? AND id != ?', [safeName, userId]);
+        if (dup.length > 0) {
+          return res.status(400).json({ error: '该用户名已被使用' });
+        }
+        updates.push('userName = ?');
+        values.push(safeName);
+      }
+
+      if (typeof avatar === 'string') {
+        updates.push('avatar = ?');
+        values.push(avatar);
+      }
+
+      if (updates.length === 0) {
+        return res.status(400).json({ error: '没有要修改的内容' });
+      }
+
+      values.push(userId);
+      await conn.execute(`UPDATE User SET ${updates.join(', ')} WHERE id = ?`, values);
+
+      const [updated] = await conn.execute('SELECT id, userName, IFNULL(avatar, "") AS avatar FROM User WHERE id = ?', [userId]);
+      res.json({ success: true, user: updated[0] });
     } catch (err) {
       res.status(500).json({ error: err.message });
     } finally {

@@ -492,7 +492,7 @@ const getColorForId = (id: string): 'blue' | 'green' | 'purple' => {
 // --- 5. 主地图组件 ---
 export default function LeafletMap() {
   const [others, setOthers] = useState<any>({});
-  const { isLoggedIn, userId, userName, applyLogin, clearAuth, loginOrAutoRegister } = useAuth();
+  const { isLoggedIn, userId, userName, avatar, applyLogin, clearAuth, loginOrAutoRegister, updateProfile } = useAuth();
   const [myPosition, setMyPosition] = useState<[number, number] | null>(null);
   const [myAccuracy, setMyAccuracy] = useState<number | null>(null);
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
@@ -787,8 +787,8 @@ export default function LeafletMap() {
     }
   };
 
-  const handleLoginSuccess = (newUserId: string, newUserName: string) => {
-    applyLogin(newUserId, newUserName);
+  const handleLoginSuccess = (newUserId: string, newUserName: string, newAvatar?: string) => {
+    applyLogin(newUserId, newUserName, newAvatar);
     if (!groupCode) {
       setGroupPanelOpen(true);
     }
@@ -1144,7 +1144,9 @@ export default function LeafletMap() {
         onLogout={handleLogout}
         isLoggedIn={isLoggedIn}
         userName={userName}
+        avatar={avatar}
         loginOrAutoRegister={loginOrAutoRegister}
+        updateProfile={updateProfile}
       />
 
       <TripCreateDialog
