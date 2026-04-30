@@ -44,7 +44,6 @@ const compressAvatar = (file: File): Promise<string> => {
         return;
       }
 
-      // 居中裁剪
       const sx = (img.naturalWidth - size) / 2;
       const sy = (img.naturalHeight - size) / 2;
       ctx.drawImage(img, sx, sy, size, size, 0, 0, size, size);
@@ -76,10 +75,9 @@ export default function LoginPanel({
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
 
-  // 编辑状态
+  // 编辑弹窗
+  const [editOpen, setEditOpen] = useState(false);
   const [editName, setEditName] = useState('');
   const [editAvatarFile, setEditAvatarFile] = useState<File | null>(null);
   const [editAvatarPreview, setEditAvatarPreview] = useState<string | null>(null);
@@ -109,7 +107,6 @@ export default function LoginPanel({
       onLogout();
       setEmail('');
       setPassword('');
-      setProfileOpen(false);
       setEditOpen(false);
     }
   };
@@ -188,6 +185,7 @@ export default function LoginPanel({
     }
   };
 
+  // 登录面板
   if (!isLoggedIn) {
     return (
       <div className="absolute left-1/2 top-1/2 z-[1000] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-lg">
@@ -244,34 +242,33 @@ export default function LoginPanel({
 
   return (
     <>
-      {/* 手机端头像按钮 */}
+      {/* 头像按钮 - 点击直接打开编辑弹窗 */}
       <button
         type="button"
-        aria-label={profileOpen ? '收起个人面板' : '展开个人面板'}
-        onClick={() => setProfileOpen((prev) => !prev)}
-        className="absolute right-3 z-[1000] flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white/95 text-sm font-semibold text-[#6F8B73] shadow-sm backdrop-blur-sm mobile-safe-top [--safe-top-base:0.75rem] md:hidden"
+        onClick={openEdit}
+        className="absolute right-3 z-[1000] flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white/95 shadow-sm backdrop-blur-sm mobile-safe-top [--safe-top-base:0.75rem] md:right-4 md:top-4"
       >
         {avatar ? (
           <img src={avatar} alt={displayName} className="h-full w-full object-cover" />
         ) : (
-          displayName.slice(0, 1).toUpperCase()
+          <span className="text-sm font-semibold text-[#6F8B73]">
+            {displayName.slice(0, 1).toUpperCase()}
+          </span>
         )}
       </button>
 
-      {/* 桌面端 & 展开 个人面板 */}
-      <div
-        className={`absolute right-3 z-[1000] rounded-xl border border-white/25 bg-white/55 p-3 shadow-sm backdrop-blur-md transition-all duration-200 mobile-safe-top [--safe-top-base:3.85rem] md:right-4 md:top-4 md:[--safe-top-base:1rem] ${profileOpen ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 -translate-y-1 pointer-events-none md:opacity-100 md:translate-y-0 md:pointer-events-auto'}`}
-      >
-        {editOpen ? (
-          <div className="space-y-3 w-52">
-            <h4 className="text-sm font-semibold text-slate-700">编辑资料</h4>
+      {/* 编辑资料弹窗 */}
+      {editOpen && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/30">
+          <div className="rounded-xl bg-white p-5 shadow-2xl w-72 mx-4 space-y-4">
+            <h3 className="text-base font-bold text-slate-800 text-center">编辑资料</h3>
 
-            {/* 头像上传 */}
+            {/* 头像 */}
             <div className="flex flex-col items-center gap-2">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="relative h-20 w-20 overflow-hidden rounded-full border-2 border-dashed border-gray-300 hover:border-[#7E9D82] transition-colors"
+                className="relative h-24 w-24 overflow-hidden rounded-full border-2 border-dashed border-gray-300 hover:border-[#7E9D82] transition-colors"
               >
                 {(editAvatarPreview || avatar) ? (
                   <img
@@ -280,7 +277,7 @@ export default function LoginPanel({
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <span className="flex h-full w-full items-center justify-center text-2xl text-gray-400">
+                  <span className="flex h-full w-full items-center justify-center text-3xl text-gray-400">
                     {displayName.slice(0, 1).toUpperCase()}
                   </span>
                 )}
@@ -292,67 +289,50 @@ export default function LoginPanel({
                 onChange={handleAvatarFileChange}
                 className="hidden"
               />
-              <span className="text-[10px] text-gray-400">点击更换头像</span>
+              <span className="text-[11px] text-gray-400">点击头像更换</span>
             </div>
 
-            {/* 用户名编辑 */}
+            {/* 用户名 */}
             <input
               type="text"
               placeholder="用户名（2-20位）"
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
 
-            {editError && <div className="text-red-500 text-xs">{editError}</div>}
+            {editError && <div className="text-red-500 text-xs text-center">{editError}</div>}
 
+            {/* 按钮 */}
             <div className="flex gap-2">
               <button
                 onClick={() => {
                   void handleSaveProfile();
                 }}
                 disabled={editSaving}
-                className="flex-1 bg-[#7E9D82] hover:bg-[#6F8B73] text-white px-3 py-2 rounded text-xs disabled:opacity-50"
+                className="flex-1 bg-[#7E9D82] hover:bg-[#6F8B73] text-white px-3 py-2 rounded text-sm disabled:opacity-50"
               >
                 {editSaving ? '保存中...' : '保存'}
               </button>
               <button
                 onClick={() => setEditOpen(false)}
                 disabled={editSaving}
-                className="flex-1 border border-gray-300 text-gray-600 px-3 py-2 rounded text-xs hover:bg-gray-50"
+                className="flex-1 border border-gray-300 text-gray-600 px-3 py-2 rounded text-sm hover:bg-gray-50"
               >
                 取消
               </button>
             </div>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={openEdit}
-              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-            >
-              <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-[#7E9D82] text-sm font-semibold text-white">
-                {avatar ? (
-                  <img src={avatar} alt={displayName} className="h-full w-full object-cover" />
-                ) : (
-                  displayName.slice(0, 1).toUpperCase()
-                )}
-              </div>
-              <div className="text-sm text-slate-700 text-left">
-                <p className="font-semibold">{displayName}</p>
-                <p className="text-[10px] text-gray-400">点击编辑资料</p>
-              </div>
-            </button>
+
+            {/* 退出登录 */}
             <button
               onClick={handleLogout}
-              className="w-full bg-[#7E9D82] hover:bg-[#6F8B73] text-white px-3 py-2 rounded text-sm"
+              className="w-full text-xs text-gray-400 hover:text-red-500 transition-colors"
             >
               退出登录
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </>
   );
 }
