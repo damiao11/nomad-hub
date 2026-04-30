@@ -326,7 +326,7 @@ export default function LoginPanel({
             {/* 退出登录 */}
             <button
               onClick={handleLogout}
-              className="w-full text-xs text-gray-400 hover:text-red-500 transition-colors"
+              className="w-full text-xs text-gray-400 hover:text-red-500 transition-colors underline"
             >
               退出登录
             </button>
