@@ -1,4 +1,5 @@
 const { createConnection, normalizePhotoPayload } = require('../db/mysql');
+const { moderateText } = require('../utils/contentModeration');
 
 const registerTripRoutes = (app) => {
   app.get('/api/trips', async (req, res) => {
@@ -36,6 +37,20 @@ const registerTripRoutes = (app) => {
       return res.status(400).json({ error: '必须提供 userId' });
     }
 
+    // 审核足迹名称和备注
+    if (name) {
+      const nameCheck = await moderateText(name);
+      if (!nameCheck.pass) {
+        return res.status(400).json({ error: nameCheck.reason || '足迹名称包含违规内容' });
+      }
+    }
+    if (safeNote) {
+      const noteCheck = await moderateText(safeNote);
+      if (!noteCheck.pass) {
+        return res.status(400).json({ error: noteCheck.reason || '备注包含违规内容' });
+      }
+    }
+
     let conn;
     try {
       conn = await createConnection();
@@ -64,7 +79,19 @@ const registerTripRoutes = (app) => {
       return res.status(400).json({ error: '足迹名称不能为空' });
     }
 
+    // 审核足迹名称和备注
+    const nameCheck = await moderateText(safeName);
+    if (!nameCheck.pass) {
+      return res.status(400).json({ error: nameCheck.reason || '足迹名称包含违规内容' });
+    }
+
     const safeNote = typeof note === 'string' ? note : '';
+    if (safeNote) {
+      const noteCheck = await moderateText(safeNote);
+      if (!noteCheck.pass) {
+        return res.status(400).json({ error: noteCheck.reason || '备注包含违规内容' });
+      }
+    }
     const safePhotoUrl = normalizePhotoPayload(photoUrl);
 
     let conn;

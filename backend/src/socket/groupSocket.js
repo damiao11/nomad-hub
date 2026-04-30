@@ -1,3 +1,4 @@
+const { moderateText } = require('../utils/contentModeration');
 const groups = new Map();
 
 const normalizeMemberId = (value) => {
@@ -286,6 +287,15 @@ const registerGroupSocketHandlers = (io) => {
       if (!message.text) {
         if (typeof callback === 'function') {
           callback({ ok: false, error: '消息不能为空' });
+        }
+        return;
+      }
+
+      const moderation = await moderateText(message.text);
+      if (!moderation.pass) {
+        socket.emit('group-error', { message: moderation.reason || '消息包含违规内容' });
+        if (typeof callback === 'function') {
+          callback({ ok: false, error: moderation.reason || '消息包含违规内容' });
         }
         return;
       }

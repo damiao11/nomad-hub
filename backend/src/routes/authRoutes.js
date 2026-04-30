@@ -1,5 +1,6 @@
 const { createConnection } = require('../db/mysql');
 const { REGISTER_PASSWORD_RULE, getEmailRuleError } = require('../utils/authRules');
+const { moderateText } = require('../utils/contentModeration');
 
 const generateRandomName = () => {
   const adj = ['游牧', '自由', '远行', '探险', '流浪', '追风', '踏月', '逐日', '乘风', '山海'];
@@ -109,6 +110,10 @@ const registerAuthRoutes = (app) => {
         const safeName = userName.trim();
         if (safeName.length < 2 || safeName.length > 20) {
           return res.status(400).json({ error: '用户名需为 2-20 位' });
+        }
+        const nameCheck = await moderateText(safeName);
+        if (!nameCheck.pass) {
+          return res.status(400).json({ error: nameCheck.reason || '用户名包含违规内容' });
         }
         const [dup] = await conn.execute('SELECT id FROM User WHERE userName = ? AND id != ?', [safeName, userId]);
         if (dup.length > 0) {
