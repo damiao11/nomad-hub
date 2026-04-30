@@ -34,9 +34,9 @@ const compressAvatar = (file: File): Promise<string> => {
 
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      const size = Math.min(img.naturalWidth, img.naturalHeight, AVATAR_SIZE);
-      canvas.width = size;
-      canvas.height = size;
+      const scale = Math.min(AVATAR_SIZE / img.naturalWidth, AVATAR_SIZE / img.naturalHeight);
+      canvas.width = Math.round(img.naturalWidth * scale);
+      canvas.height = Math.round(img.naturalHeight * scale);
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         URL.revokeObjectURL(url);
@@ -44,9 +44,7 @@ const compressAvatar = (file: File): Promise<string> => {
         return;
       }
 
-      const sx = (img.naturalWidth - size) / 2;
-      const sy = (img.naturalHeight - size) / 2;
-      ctx.drawImage(img, sx, sy, size, size, 0, 0, size, size);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
       URL.revokeObjectURL(url);
       resolve(canvas.toDataURL('image/jpeg', 0.7));
@@ -326,7 +324,7 @@ export default function LoginPanel({
             {/* 退出登录 */}
             <button
               onClick={handleLogout}
-              className="w-full text-xs text-gray-400 hover:text-red-500 transition-colors underline"
+              className="w-full text-xs text-gray-400 hover:text-red-500 transition-colors"
             >
               退出登录
             </button>
