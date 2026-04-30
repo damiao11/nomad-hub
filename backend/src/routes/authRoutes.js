@@ -85,7 +85,6 @@ const registerAuthRoutes = (app) => {
       if (conn) await conn.end();
     }
   });
-};
 
   app.put('/api/user/profile', async (req, res) => {
     const { userId, userName, avatar } = req.body;
