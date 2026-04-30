@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { getUsernameRuleError, getEmailRuleError, REGISTER_USERNAME_ALLOWED_CHARS_RULE, REGISTER_EMAIL_RULE } from '@/lib/auth/authRules';
+import { getUsernameRuleError, getEmailRuleError, REGISTER_USERNAME_ALLOWED_CHARS_RULE } from '@/lib/auth/authRules';
 
 type LoginPanelProps = {
   apiBaseUrl: string;
@@ -29,7 +29,6 @@ export default function LoginPanel({
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [profileOpen, setProfileOpen] = useState(false);
-  const [showEmailInput, setShowEmailInput] = useState(false);
 
   const trimmedUsername = username.trim();
   const hasUsernameInput = trimmedUsername.length > 0;
@@ -42,32 +41,15 @@ export default function LoginPanel({
     setLoading(true);
     setErrorMsg('');
     try {
-      // 强制：如果没显示邮箱输入框，且用户名不是邮箱格式，先提示
-      if (!showEmailInput && !REGISTER_EMAIL_RULE.test(username)) {
-        // 先尝试正常登录
-        const result = await loginOrAutoRegister(apiBaseUrl, username, password, email);
-        if (!result.ok) {
-          setErrorMsg(result.error);
-          if (result.error.includes('账号') || result.error.includes('注册')) {
-            setShowEmailInput(true);
-          }
-          return;
-        }
-        onLoginSuccess(result.userId, result.userName);
-      } else {
-        // 已经显示了邮箱框，或者用户名就是邮箱，直接提交
-        const result = await loginOrAutoRegister(apiBaseUrl, username, password, email || (REGISTER_EMAIL_RULE.test(username) ? username : ''));
-        if (!result.ok) {
-          setErrorMsg(result.error);
-          return;
-        }
-        onLoginSuccess(result.userId, result.userName);
+      const result = await loginOrAutoRegister(apiBaseUrl, username, password, email);
+      if (!result.ok) {
+        setErrorMsg(result.error);
+        return;
       }
-
+      onLoginSuccess(result.userId, result.userName);
       setUsername('');
       setPassword('');
       setEmail('');
-      setShowEmailInput(false);
     } finally {
       setLoading(false);
     }
@@ -118,27 +100,23 @@ export default function LoginPanel({
             }}
             className="w-full border border-gray-300 rounded px-3 py-2 text-xs placeholder:text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          {showEmailInput && (
-            <>
-              <input
-                type="email"
-                placeholder="注册专用：谷歌/网易/QQ邮箱"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    void handleAuth();
-                  }
-                }}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-xs placeholder:text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 animate-in fade-in duration-300"
-              />
-              {email && getEmailRuleError(email) && (
-                <div className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] text-amber-700">
-                  支持：@gmail.com, @163.com, @126.com, @qq.com
-                </div>
-              )}
-            </>
+          <input
+            type="email"
+            placeholder="邮箱（新用户自动注册，仅支持谷歌/网易/QQ）"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void handleAuth();
+              }
+            }}
+            className="w-full border border-gray-300 rounded px-3 py-2 text-xs placeholder:text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {email && getEmailRuleError(email) && (
+            <div className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] text-amber-700">
+              支持：@gmail.com, @163.com, @126.com, @qq.com
+            </div>
           )}
           {errorMsg && <div className="text-red-500 text-xs">{errorMsg}</div>}
           <div className="flex gap-2">
