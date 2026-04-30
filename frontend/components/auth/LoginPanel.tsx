@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { getUsernameRuleError, getEmailRuleError, REGISTER_USERNAME_ALLOWED_CHARS_RULE } from '@/lib/auth/authRules';
+import { getEmailRuleError, REGISTER_PASSWORD_RULE } from '@/lib/auth/authRules';
 
 type LoginPanelProps = {
   apiBaseUrl: string;
@@ -9,7 +9,7 @@ type LoginPanelProps = {
   userName: string | null;
   onLoginSuccess: (userId: string, userName: string) => void;
   onLogout: () => void;
-  loginOrAutoRegister: (apiBaseUrl: string, userName: string, password: string, email?: string) => Promise<
+  loginOrAutoRegister: (apiBaseUrl: string, email: string, password: string) => Promise<
     | { ok: true; userId: string; userName: string }
     | { ok: false; error: string }
   >;
@@ -23,33 +23,24 @@ export default function LoginPanel({
   onLogout,
   loginOrAutoRegister,
 }: LoginPanelProps) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [profileOpen, setProfileOpen] = useState(false);
-
-  const trimmedUsername = username.trim();
-  const hasUsernameInput = trimmedUsername.length > 0;
-  const usernameRuleError = getUsernameRuleError(username);
-  const shouldShowUsernameRuleHint = hasUsernameInput
-    && Boolean(usernameRuleError)
-    && !(trimmedUsername.length === 1 && REGISTER_USERNAME_ALLOWED_CHARS_RULE.test(trimmedUsername));
 
   const handleAuth = async () => {
     setLoading(true);
     setErrorMsg('');
     try {
-      const result = await loginOrAutoRegister(apiBaseUrl, username, password, email);
+      const result = await loginOrAutoRegister(apiBaseUrl, email, password);
       if (!result.ok) {
         setErrorMsg(result.error);
         return;
       }
       onLoginSuccess(result.userId, result.userName);
-      setUsername('');
-      setPassword('');
       setEmail('');
+      setPassword('');
     } finally {
       setLoading(false);
     }
@@ -58,7 +49,7 @@ export default function LoginPanel({
   const handleLogout = () => {
     if (confirm('确定要退出登录吗？')) {
       onLogout();
-      setUsername('');
+      setEmail('');
       setPassword('');
       setProfileOpen(false);
     }
@@ -68,41 +59,11 @@ export default function LoginPanel({
     return (
       <div className="absolute left-1/2 top-1/2 z-[1000] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-4 shadow-lg">
         <div className="w-64 space-y-3">
-          <h3 className="font-bold text-lg">登录/注册</h3>
-          <input
-            type="text"
-            placeholder="用户名"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                void handleAuth();
-              }
-            }}
-            className="w-full border border-gray-300 rounded px-3 py-2 text-xs placeholder:text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          {shouldShowUsernameRuleHint && (
-            <div className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700">
-              用户名规则：2-20 位，仅中文/字母/数字/下划线，不能全数字
-            </div>
-          )}
-          <input
-            type="password"
-            placeholder="密码需 8-16 位，包含字母、数字和符号"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                void handleAuth();
-              }
-            }}
-            className="w-full border border-gray-300 rounded px-3 py-2 text-xs placeholder:text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <h3 className="font-bold text-lg">登录 / 注册</h3>
+          <p className="text-xs text-gray-500">输入邮箱和密码，新用户将自动注册</p>
           <input
             type="email"
-            placeholder="邮箱（新用户自动注册，仅支持谷歌/网易/QQ）"
+            placeholder="邮箱（仅支持谷歌/网易/QQ）"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onKeyDown={(e) => {
@@ -115,21 +76,32 @@ export default function LoginPanel({
           />
           {email && getEmailRuleError(email) && (
             <div className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] text-amber-700">
-              支持：@gmail.com, @163.com, @126.com, @qq.com
+              仅支持：@gmail.com, @163.com, @126.com, @qq.com
             </div>
           )}
-          {errorMsg && <div className="text-red-500 text-xs">{errorMsg}</div>}
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
+          <input
+            type="password"
+            placeholder="密码（8-16位，含字母、数字和符号）"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
                 void handleAuth();
-              }}
-              disabled={loading}
-              className="flex-1 bg-[#7E9D82] hover:bg-[#6F8B73] text-white px-3 py-2 rounded text-sm disabled:opacity-50"
-            >
-              登录 / 自动注册
-            </button>
-          </div>
+              }
+            }}
+            className="w-full border border-gray-300 rounded px-3 py-2 text-xs placeholder:text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {errorMsg && <div className="text-red-500 text-xs">{errorMsg}</div>}
+          <button
+            onClick={() => {
+              void handleAuth();
+            }}
+            disabled={loading}
+            className="w-full bg-[#7E9D82] hover:bg-[#6F8B73] text-white px-3 py-2 rounded text-sm disabled:opacity-50"
+          >
+            {loading ? '请稍候...' : '登录 / 注册'}
+          </button>
         </div>
       </div>
     );
