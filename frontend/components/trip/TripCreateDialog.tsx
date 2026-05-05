@@ -82,7 +82,7 @@ const TripCreateDialog = memo(function TripCreateDialog({
           <input
             id="trip-image-upload"
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
             multiple
             onChange={(e) => {
               const files = e.target.files ? Array.from(e.target.files) : [];

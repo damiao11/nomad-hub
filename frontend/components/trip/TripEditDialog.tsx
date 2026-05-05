@@ -113,7 +113,7 @@ const TripEditDialog = memo(function TripEditDialog({
               <input
                 id="edit-trip-image-add"
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
                 multiple
                 onChange={(e) => {
                   handleEditFileSelection(e.target.files);
@@ -167,7 +167,7 @@ const TripEditDialog = memo(function TripEditDialog({
                   <input
                     id="edit-trip-image-new"
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
                     multiple
                     onChange={(e) => handleEditFileSelection(e.target.files)}
                     className="hidden"

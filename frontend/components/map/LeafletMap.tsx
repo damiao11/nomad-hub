@@ -188,14 +188,14 @@ const compressImageFile = (file: File, maxSide = MAX_IMAGE_EDGE_PX, quality = IN
         return;
       }
 
-      // 手机端简化压缩：单次缩放，避免迭代消耗CPU
+      // 手机端简化压缩：单次缩放，更小尺寸减少保存时间
       if (isMobileDevice()) {
-        const mobileMaxSide = Math.min(maxSide, 800);
+        const mobileMaxSide = Math.min(maxSide, 640);
         const targetSize = getScaledSize(width, height, mobileMaxSide);
         canvas.width = targetSize.width;
         canvas.height = targetSize.height;
         ctx.drawImage(image, 0, 0, targetSize.width, targetSize.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.55);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
         URL.revokeObjectURL(objectUrl);
         resolve(dataUrl);
         return;
