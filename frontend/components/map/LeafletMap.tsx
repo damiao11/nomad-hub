@@ -167,6 +167,15 @@ const isMobileDevice = () => {
   return /Mobi|Android/i.test(navigator.userAgent);
 };
 
+const isOldBrowser = () => {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  // vivo 自带浏览器、旧版 WebView
+  if (/VivoBrowser/i.test(ua)) return true;
+  if (/Android/.test(ua) && /AppleWebKit/.test(ua) && !/Chrome/.test(ua) && !/Quark/.test(ua) && !/Edge/.test(ua)) return true;
+  return false;
+};
+
 const compressImageFile = (file: File, maxSide = MAX_IMAGE_EDGE_PX, quality = INITIAL_IMAGE_QUALITY) => {
   return new Promise<string>((resolve, reject) => {
     if (!file.type.startsWith('image/')) {
@@ -509,6 +518,7 @@ const getColorForId = (id: string): 'blue' | 'green' | 'purple' => {
 
 // --- 5. 主地图组件 ---
 export default function LeafletMap() {
+  const [showOldBrowserTip, setShowOldBrowserTip] = useState(isOldBrowser());
   const [others, setOthers] = useState<any>({});
   const { isLoggedIn, userId, userName, avatar, isAdmin, applyLogin, clearAuth, sendCode, register, login, resetPassword, updateProfile } = useAuth();
   const [myPosition, setMyPosition] = useState<[number, number] | null>(null);
@@ -1088,6 +1098,16 @@ export default function LeafletMap() {
 
   return (
     <div className="map-fullscreen relative">
+      {showOldBrowserTip && (
+        <div className="absolute left-0 right-0 top-0 z-[2000] bg-amber-50 border-b border-amber-200 px-4 py-3 text-center">
+          <p className="text-sm text-amber-800">
+            你的浏览器内核较旧，可能无法正常显示地图或保存较慢。
+            推荐使用 <b>夸克浏览器</b> 或 <b>Chrome</b> 获得最佳体验。
+          </p>
+          <button onClick={() => setShowOldBrowserTip(false)}
+            className="mt-1 text-xs text-amber-600 underline">关闭提示</button>
+        </div>
+      )}
       <style jsx global>{`
         .leaflet-div-icon.saved-trip-div-icon,
         .leaflet-div-icon.custom-div-icon {
