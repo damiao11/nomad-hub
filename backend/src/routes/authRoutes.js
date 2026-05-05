@@ -32,7 +32,7 @@ const registerAuthRoutes = (app) => {
     }
 
     if (!canSend(safeEmail)) {
-      return res.status(429).json({ error: '发送太频繁，请60秒后再试' });
+      return res.status(429).json({ error: '发送太频繁，请30秒后再试' });
     }
 
     try {

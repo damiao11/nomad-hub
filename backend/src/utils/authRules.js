@@ -7,7 +7,7 @@ const getEmailRuleError = (value) => {
     return '邮箱不能为空';
   }
   if (!REGISTER_EMAIL_RULE.test(trimmed)) {
-    return '仅支持谷歌(gmail.com)、网易(163.com/126.com)和QQ邮箱(qq.com)';
+    return '仅支持 gmail.com、163.com、126.com、qq.com';
   }
   return null;
 };

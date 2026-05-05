@@ -19,12 +19,11 @@ const verifyCode = (email, code) => {
   return entry.code === String(code);
 };
 
-// 检查是否可发送（60秒内不能重复发送）
+// 检查是否可发送（30秒内不能重复发送）
 const canSend = (email) => {
   const entry = codes.get(email);
   if (!entry) return true;
-  // 距离上次发送超过60秒
-  return Date.now() - (entry.expiresAt - 5 * 60 * 1000) > 60 * 1000;
+  return Date.now() - (entry.expiresAt - 5 * 60 * 1000) > 30 * 1000;
 };
 
 module.exports = { setCode, verifyCode, canSend };

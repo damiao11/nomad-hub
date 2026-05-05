@@ -183,7 +183,7 @@ export default function LoginPanel({
             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); isForgot ? null : isRegister ? handleRegister() : handleLogin(); }}}
             className="w-full border border-gray-300 rounded px-3 py-2 text-xs placeholder:text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
           {email && getEmailRuleError(email) && (
-            <div className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] text-amber-700">仅支持：@gmail.com, @163.com, @126.com, @qq.com</div>
+            <div className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] text-amber-700">仅支持：gmail.com、163.com、126.com、qq.com</div>
           )}
 
           {/* 注册/忘记密码 - 验证码 */}

@@ -52,7 +52,7 @@ export function useAuth() {
   const sendCode = async (apiBaseUrl: string, inputEmail: string) => {
     const email = inputEmail.trim();
     if (!email) return { ok: false as const, error: '请输入邮箱' };
-    if (!REGISTER_EMAIL_RULE.test(email)) return { ok: false as const, error: '仅支持谷歌/网易/QQ邮箱' };
+    if (!REGISTER_EMAIL_RULE.test(email)) return { ok: false as const, error: '仅支持 gmail/163/126/qq' };
     try {
       const response = await fetch(`${apiBaseUrl}/api/auth/send-code`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
       if (!response.ok) { const data = await response.json().catch(() => ({})); return { ok: false as const, error: data.error || '发送失败' }; }
@@ -63,7 +63,7 @@ export function useAuth() {
   const register = async (apiBaseUrl: string, inputEmail: string, inputPassword: string, code: string) => {
     const email = inputEmail.trim(); const password = inputPassword;
     if (!email || !code || !password.trim()) return { ok: false as const, error: '请填写完整信息' };
-    if (!REGISTER_EMAIL_RULE.test(email)) return { ok: false as const, error: '仅支持谷歌/网易/QQ邮箱' };
+    if (!REGISTER_EMAIL_RULE.test(email)) return { ok: false as const, error: '仅支持 gmail/163/126/qq' };
     if (!REGISTER_PASSWORD_RULE.test(password)) return { ok: false as const, error: '密码需为 8-16 位，且包含字母、数字和符号' };
     try {
       const response = await fetch(`${apiBaseUrl}/api/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, code }) });
