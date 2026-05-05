@@ -1,4 +1,5 @@
 const { moderateText } = require('../utils/contentModeration');
+const { createConnection } = require('../db/mysql');
 
 const escapeHtml = (text) => {
   return text
@@ -36,7 +37,6 @@ const ensureGroup = (code) => {
       ownerId: null,
       members: {},
       locations: {},
-      messages: [],
     });
   }
   return groups.get(code);
@@ -70,17 +70,63 @@ const buildChatMessage = (userName, text) => ({
   createdAt: new Date().toISOString(),
 });
 
-const getPagedGroupHistory = (group, offset = 0, limit = 30) => {
-  const total = Array.isArray(group?.messages) ? group.messages.length : 0;
-  const safeOffset = Number.isFinite(offset) ? Math.max(0, Math.floor(offset)) : 0;
-  const safeLimit = Number.isFinite(limit) ? Math.min(100, Math.max(1, Math.floor(limit))) : 30;
-  const end = Math.max(0, total - safeOffset);
-  const start = Math.max(0, end - safeLimit);
-  return {
-    messages: group.messages.slice(start, end),
-    hasMore: start > 0,
-    total,
-  };
+// 从 DB 加载消息（分页）
+const loadMessagesFromDB = async (code, offset = 0, limit = 30) => {
+  let conn;
+  try {
+    conn = await createConnection();
+    const [rows] = await conn.execute(
+      'SELECT id, userName, text, createdAt FROM ChatMessages WHERE groupCode = ? ORDER BY createdAt ASC LIMIT ? OFFSET ?',
+      [code, String(limit + 1), String(offset)]
+    );
+    const hasMore = rows.length > limit;
+    const messages = (hasMore ? rows.slice(0, limit) : rows).map((r) => ({
+      id: r.id,
+      userName: r.userName,
+      text: r.text,
+      createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
+    }));
+    const [countRows] = await conn.execute(
+      'SELECT COUNT(*) AS total FROM ChatMessages WHERE groupCode = ?', [code]
+    );
+    return { messages, hasMore, total: countRows[0].total };
+  } catch (err) {
+    console.warn('[chat] DB load error:', err.message);
+    return { messages: [], hasMore: false, total: 0 };
+  } finally {
+    if (conn) await conn.end();
+  }
+};
+
+// 保存消息到 DB
+const saveMessageToDB = async (code, message) => {
+  let conn;
+  try {
+    conn = await createConnection();
+    await conn.execute(
+      'INSERT INTO ChatMessages (id, groupCode, memberId, userName, text, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
+      [message.id, code, '', message.userName, message.text, new Date(message.createdAt)]
+    );
+  } catch (err) {
+    console.warn('[chat] DB save error:', err.message);
+  } finally {
+    if (conn) await conn.end();
+  }
+};
+
+// 从 DB 删除消息
+const deleteMessageFromDB = async (messageId) => {
+  let conn;
+  try {
+    conn = await createConnection();
+    await conn.execute('DELETE FROM ChatMessages WHERE id = ?', [messageId]);
+    return true;
+  } catch (err) {
+    console.warn('[chat] DB delete error:', err.message);
+    return false;
+  } finally {
+    if (conn) await conn.end();
+  }
 };
 
 const registerGroupSocketHandlers = (io) => {
@@ -124,7 +170,7 @@ const registerGroupSocketHandlers = (io) => {
 
     emitGroupMembers(code);
 
-    if (Object.keys(group.members).length === 0 && group.messages.length === 0) {
+    if (Object.keys(group.members).length === 0) {
       groups.delete(code);
     }
 
@@ -164,10 +210,28 @@ const registerGroupSocketHandlers = (io) => {
     }
 
     socket.emit('group-joined', { code });
-    socket.emit('group-history', group.messages.slice(-80));
     socket.emit('group-members', serializeMembers(group));
     io.to(code).emit('group-locations', group.locations);
     emitGroupMembers(code);
+
+    // 从 DB 加载最近消息
+    loadMessagesFromDB(code, 0, 30).then(({ messages, hasMore, total }) => {
+      socket.emit('group-history', { messages, hasMore, total });
+    });
+  };
+
+  // 检查用户是否为管理员
+  const checkIsAdmin = async (userId) => {
+    let conn;
+    try {
+      conn = await createConnection();
+      const [rows] = await conn.execute('SELECT isAdmin FROM User WHERE id = ?', [userId]);
+      return rows.length > 0 && !!rows[0].isAdmin;
+    } catch {
+      return false;
+    } finally {
+      if (conn) await conn.end();
+    }
   };
 
   io.on('connection', (socket) => {
@@ -175,29 +239,27 @@ const registerGroupSocketHandlers = (io) => {
     socket.data.memberId = null;
     socket.data.userName = null;
 
-    socket.on('request-group-history', (payload, callback) => {
+    socket.on('request-group-history', async (payload, callback) => {
       const code = socket.data.groupCode;
       if (!code || !groups.has(code)) {
         if (typeof callback === 'function') {
           callback({ ok: true, messages: [], hasMore: false, total: 0 });
         } else {
-          socket.emit('group-history', []);
+          socket.emit('group-history', { messages: [], hasMore: false, total: 0 });
         }
         return;
       }
 
-      const { messages, hasMore, total } = getPagedGroupHistory(
-        groups.get(code),
-        payload?.offset,
-        payload?.limit
-      );
+      const limit = payload?.limit || 30;
+      const offset = payload?.offset || 0;
+      const { messages, hasMore, total } = await loadMessagesFromDB(code, offset, limit);
 
       if (typeof callback === 'function') {
         callback({ ok: true, messages, hasMore, total });
         return;
       }
 
-      socket.emit('group-history', messages);
+      socket.emit('group-history', { messages, hasMore, total });
     });
 
     socket.on('create-group', (_payload, callback) => {
@@ -224,7 +286,7 @@ const registerGroupSocketHandlers = (io) => {
       }
     });
 
-    socket.on('join-group', (payload, callback) => {
+    socket.on('join-group', async (payload, callback) => {
       const code = normalizeGroupCode(payload?.code);
       const memberId = normalizeMemberId(payload?.userId);
       const userName = typeof payload?.userName === 'string' && payload.userName.trim() !== ''
@@ -242,6 +304,21 @@ const registerGroupSocketHandlers = (io) => {
           callback({ ok: false, error: '缺少用户标识，请重新登录' });
         }
         return;
+      }
+
+      // 检查封禁状态
+      let conn;
+      try {
+        conn = await createConnection();
+        const [rows] = await conn.execute('SELECT isBanned FROM User WHERE id = ?', [memberId]);
+        if (rows.length > 0 && rows[0].isBanned) {
+          if (typeof callback === 'function') {
+            callback({ ok: false, error: '该账号已被封禁，无法加入群组' });
+          }
+          return;
+        }
+      } catch { /* fail open */ } finally {
+        if (conn) await conn.end();
       }
 
       if (!groups.has(code)) {
@@ -273,7 +350,7 @@ const registerGroupSocketHandlers = (io) => {
       }
     });
 
-    socket.on('group-message', (payload, callback) => {
+    socket.on('group-message', async (payload, callback) => {
       const code = socket.data.groupCode;
       const memberId = socket.data.memberId;
       if (!code || !groups.has(code)) {
@@ -310,11 +387,9 @@ const registerGroupSocketHandlers = (io) => {
         return;
       }
 
-      group.messages.push(message);
-      if (group.messages.length > 300) {
-        group.messages.splice(0, group.messages.length - 300);
-      }
-
+      // 保存到 MySQL
+      await saveMessageToDB(code, message);
+      // 广播
       io.to(code).emit('group-message', message);
       if (typeof callback === 'function') {
         callback({ ok: true, message });
@@ -366,7 +441,7 @@ const registerGroupSocketHandlers = (io) => {
 
       const group = groups.get(code);
       if (!requesterId || requesterId !== group.ownerId) {
-        if (typeof callback === 'function') callback({ ok: false, error: '仅群主可操作' });
+        if (typeof callback === 'function') callback({ ok: false, error: '仅群主或管理员可操作' });
         return;
       }
 
@@ -421,6 +496,70 @@ const registerGroupSocketHandlers = (io) => {
       delete group.members[targetMemberId];
       emitGroupMembers(code);
       if (typeof callback === 'function') callback({ ok: true });
+    });
+
+    // 管理员删除消息
+    socket.on('admin-delete-message', async (payload, callback) => {
+      const code = socket.data.groupCode;
+      const requesterId = socket.data.memberId;
+      const messageId = payload?.messageId;
+
+      if (!requesterId || !messageId) {
+        if (typeof callback === 'function') callback({ ok: false, error: '参数错误' });
+        return;
+      }
+
+      const isAdmin = await checkIsAdmin(requesterId);
+      if (!isAdmin) {
+        if (typeof callback === 'function') callback({ ok: false, error: '仅管理员可操作' });
+        return;
+      }
+
+      const deleted = await deleteMessageFromDB(messageId);
+      if (deleted && code) {
+        io.to(code).emit('admin-message-deleted', { messageId });
+      }
+      if (typeof callback === 'function') callback({ ok: deleted });
+    });
+
+    // 管理员封禁用户
+    socket.on('admin-ban-member', async (payload, callback) => {
+      const requesterId = socket.data.memberId;
+      const targetMemberId = normalizeMemberId(payload?.memberId);
+      const ban = Boolean(payload?.ban);
+
+      if (!requesterId || !targetMemberId) {
+        if (typeof callback === 'function') callback({ ok: false, error: '参数错误' });
+        return;
+      }
+
+      const isAdmin = await checkIsAdmin(requesterId);
+      if (!isAdmin) {
+        if (typeof callback === 'function') callback({ ok: false, error: '仅管理员可操作' });
+        return;
+      }
+
+      let conn;
+      try {
+        conn = await createConnection();
+        await conn.execute('UPDATE User SET isBanned = ? WHERE id = ?', [ban ? 1 : 0, targetMemberId]);
+
+        // 踢掉被封禁用户的所有连接
+        if (ban) {
+          for (const [, sock] of io.sockets.sockets) {
+            if (sock.data.memberId === targetMemberId) {
+              sock.emit('kicked', { code: sock.data.groupCode, reason: '你已被管理员封禁' });
+              removeSocketFromGroup(sock);
+            }
+          }
+        }
+
+        if (typeof callback === 'function') callback({ ok: true });
+      } catch (err) {
+        if (typeof callback === 'function') callback({ ok: false, error: err.message });
+      } finally {
+        if (conn) await conn.end();
+      }
     });
 
     socket.on('disconnect', () => {

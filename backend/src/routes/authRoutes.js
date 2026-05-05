@@ -123,7 +123,7 @@ const registerAuthRoutes = (app) => {
     try {
       conn = await createConnection();
       const [rows] = await conn.execute(
-        'SELECT id, userName, password, IFNULL(avatar, "") AS avatar FROM User WHERE email = ?',
+        'SELECT id, userName, password, IFNULL(avatar, "") AS avatar, isAdmin, isBanned FROM User WHERE email = ?',
         [email]
       );
 
@@ -132,11 +132,16 @@ const registerAuthRoutes = (app) => {
       }
 
       const user = rows[0];
+
+      if (user.isBanned) {
+        return res.status(403).json({ error: '该账号已被封禁' });
+      }
+
       const match = await bcrypt.compare(password, user.password);
       if (!match) {
         return res.status(401).json({ error: '邮箱或密码错误' });
       }
-      res.json({ success: true, id: user.id, userName: user.userName, avatar: user.avatar });
+      res.json({ success: true, id: user.id, userName: user.userName, avatar: user.avatar, isAdmin: !!user.isAdmin });
     } catch (err) {
       res.status(500).json({ error: err.message });
     } finally {

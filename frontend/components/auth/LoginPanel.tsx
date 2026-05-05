@@ -8,15 +8,15 @@ type LoginPanelProps = {
   isLoggedIn: boolean;
   userName: string | null;
   avatar: string | null;
-  onLoginSuccess: (userId: string, userName: string, avatar?: string) => void;
+  onLoginSuccess: (userId: string, userName: string, avatar?: string, isAdmin?: boolean) => void;
   onLogout: () => void;
   sendCode: (apiBaseUrl: string, email: string) => Promise<{ ok: boolean; error?: string }>;
   register: (apiBaseUrl: string, email: string, password: string, code: string) => Promise<
-    | { ok: true; userId: string; userName: string; avatar?: string }
+    | { ok: true; userId: string; userName: string; avatar?: string; isAdmin?: boolean }
     | { ok: false; error: string }
   >;
   login: (apiBaseUrl: string, email: string, password: string) => Promise<
-    | { ok: true; userId: string; userName: string; avatar?: string }
+    | { ok: true; userId: string; userName: string; avatar?: string; isAdmin?: boolean }
     | { ok: false; error: string }
   >;
   resetPassword: (apiBaseUrl: string, email: string, code: string, newPassword: string) => Promise<
@@ -93,7 +93,7 @@ export default function LoginPanel({
     try {
       const result = await login(apiBaseUrl, email, password);
       if (!result.ok) { setErrorMsg(result.error); return; }
-      onLoginSuccess(result.userId, result.userName, result.avatar);
+      onLoginSuccess(result.userId, result.userName, result.avatar, result.isAdmin);
       resetForm();
     } finally { setLoading(false); }
   };
@@ -103,7 +103,7 @@ export default function LoginPanel({
     try {
       const result = await register(apiBaseUrl, email, password, code);
       if (!result.ok) { setErrorMsg(result.error); return; }
-      onLoginSuccess(result.userId, result.userName, result.avatar);
+      onLoginSuccess(result.userId, result.userName, result.avatar, result.isAdmin);
       resetForm();
     } finally { setLoading(false); }
   };
