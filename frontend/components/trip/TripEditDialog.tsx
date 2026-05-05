@@ -1,5 +1,7 @@
 'use client';
 
+import { memo } from 'react';
+
 type TripEditDialogProps = {
   open: boolean;
   editTripName: string;
@@ -18,7 +20,7 @@ type TripEditDialogProps = {
   onSubmit: () => void;
 };
 
-export default function TripEditDialog({
+const TripEditDialog = memo(function TripEditDialog({
   open,
   editTripName,
   editTripNote,
@@ -109,9 +111,9 @@ export default function TripEditDialog({
                 </span>
               </div>
               <input
-                id="edit-trip-image-upload"
+                id="edit-trip-image-add"
                 type="file"
-                accept="image/jpeg,image/jpg,image/png,image/webp"
+                accept="image/*"
                 multiple
                 onChange={(e) => {
                   handleEditFileSelection(e.target.files);
@@ -163,9 +165,9 @@ export default function TripEditDialog({
                     系统会自动压缩图片后上传，当前已有 {existingImageCount} 张，还可新增 {availableSlots} 张（总上限 {maxImageCount} 张）。
                   </div>
                   <input
-                    id="edit-trip-image-upload"
+                    id="edit-trip-image-new"
                     type="file"
-                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                    accept="image/*"
                     multiple
                     onChange={(e) => handleEditFileSelection(e.target.files)}
                     className="hidden"
@@ -195,4 +197,6 @@ export default function TripEditDialog({
       </div>
     </div>
   );
-}
+});
+
+export default TripEditDialog;

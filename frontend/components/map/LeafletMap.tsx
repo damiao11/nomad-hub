@@ -162,6 +162,11 @@ const getScaledSize = (width: number, height: number, maxSide: number) => {
   };
 };
 
+const isMobileDevice = () => {
+  if (typeof navigator === 'undefined') return false;
+  return /Mobi|Android/i.test(navigator.userAgent);
+};
+
 const compressImageFile = (file: File, maxSide = MAX_IMAGE_EDGE_PX, quality = INITIAL_IMAGE_QUALITY) => {
   return new Promise<string>((resolve, reject) => {
     if (!file.type.startsWith('image/')) {
@@ -180,6 +185,19 @@ const compressImageFile = (file: File, maxSide = MAX_IMAGE_EDGE_PX, quality = IN
       if (!ctx) {
         URL.revokeObjectURL(objectUrl);
         reject(new Error('图片压缩失败'));
+        return;
+      }
+
+      // 手机端简化压缩：单次缩放，避免迭代消耗CPU
+      if (isMobileDevice()) {
+        const mobileMaxSide = Math.min(maxSide, 800);
+        const targetSize = getScaledSize(width, height, mobileMaxSide);
+        canvas.width = targetSize.width;
+        canvas.height = targetSize.height;
+        ctx.drawImage(image, 0, 0, targetSize.width, targetSize.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.55);
+        URL.revokeObjectURL(objectUrl);
+        resolve(dataUrl);
         return;
       }
 

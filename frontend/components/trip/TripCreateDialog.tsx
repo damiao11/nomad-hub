@@ -1,5 +1,7 @@
 'use client';
 
+import { memo } from 'react';
+
 type TripCreateDialogProps = {
   open: boolean;
   tripName: string;
@@ -13,7 +15,7 @@ type TripCreateDialogProps = {
   onSubmit: () => void;
 };
 
-export default function TripCreateDialog({
+const TripCreateDialog = memo(function TripCreateDialog({
   open,
   tripName,
   tripNote,
@@ -80,7 +82,7 @@ export default function TripCreateDialog({
           <input
             id="trip-image-upload"
             type="file"
-            accept="image/jpeg,image/jpg,image/png,image/webp"
+            accept="image/*"
             multiple
             onChange={(e) => {
               const files = e.target.files ? Array.from(e.target.files) : [];
@@ -112,4 +114,6 @@ export default function TripCreateDialog({
       </div>
     </div>
   );
-}
+});
+
+export default TripCreateDialog;

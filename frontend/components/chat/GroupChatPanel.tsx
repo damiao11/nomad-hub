@@ -1,6 +1,6 @@
 'use client';
 
-import type { RefObject } from 'react';
+import { memo, type RefObject } from 'react';
 import type { GroupChatMessage, GroupMember } from '@/hooks/useGroupChat';
 
 type GroupChatPanelProps = {
@@ -27,7 +27,7 @@ const memberColor = (name: string) => {
   return colors[sum % colors.length];
 };
 
-export default function GroupChatPanel({
+const GroupChatPanel = memo(function GroupChatPanel({
   open, groupCode, userName, chatMessages, chatInput, chatSending,
   chatHasMore, chatLoadingMore, groupMembers, chatListRef,
   onClose, onChatInputChange, onSend, onLoadMore,
@@ -93,4 +93,6 @@ export default function GroupChatPanel({
       </div>
     </div>
   );
-}
+});
+
+export default GroupChatPanel;
