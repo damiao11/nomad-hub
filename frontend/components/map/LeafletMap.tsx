@@ -492,7 +492,7 @@ const getColorForId = (id: string): 'blue' | 'green' | 'purple' => {
 // --- 5. 主地图组件 ---
 export default function LeafletMap() {
   const [others, setOthers] = useState<any>({});
-  const { isLoggedIn, userId, userName, avatar, applyLogin, clearAuth, loginOrAutoRegister, updateProfile } = useAuth();
+  const { isLoggedIn, userId, userName, avatar, applyLogin, clearAuth, sendCode, register, login, resetPassword, updateProfile } = useAuth();
   const [myPosition, setMyPosition] = useState<[number, number] | null>(null);
   const [myAccuracy, setMyAccuracy] = useState<number | null>(null);
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
@@ -1145,7 +1145,10 @@ export default function LeafletMap() {
         isLoggedIn={isLoggedIn}
         userName={userName}
         avatar={avatar}
-        loginOrAutoRegister={loginOrAutoRegister}
+        sendCode={sendCode}
+        register={register}
+        login={login}
+        resetPassword={resetPassword}
         updateProfile={updateProfile}
       />
 

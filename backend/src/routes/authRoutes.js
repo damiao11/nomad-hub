@@ -1,6 +1,8 @@
 const { createConnection } = require('../db/mysql');
-const { REGISTER_PASSWORD_RULE, getEmailRuleError } = require('../utils/authRules');
+const { REGISTER_PASSWORD_RULE, REGISTER_EMAIL_RULE, getEmailRuleError } = require('../utils/authRules');
 const { moderateText } = require('../utils/contentModeration');
+const { sendVerificationCode } = require('../utils/mailer');
+const { setCode, verifyCode, canSend } = require('../utils/verificationCodes');
 
 const generateRandomName = () => {
   const adj = ['游牧', '自由', '远行', '探险', '流浪', '追风', '踏月', '逐日', '乘风', '山海'];
@@ -10,18 +12,52 @@ const generateRandomName = () => {
 };
 
 const registerAuthRoutes = (app) => {
+  // 发送邮箱验证码
+  app.post('/api/auth/send-code', async (req, res) => {
+    const { email } = req.body;
+    const safeEmail = typeof email === 'string' ? email.trim() : '';
+
+    const emailError = getEmailRuleError(safeEmail);
+    if (emailError) {
+      return res.status(400).json({ error: emailError });
+    }
+
+    if (!canSend(safeEmail)) {
+      return res.status(429).json({ error: '发送太频繁，请60秒后再试' });
+    }
+
+    try {
+      const code = setCode(safeEmail);
+      await sendVerificationCode(safeEmail, code);
+      res.json({ ok: true });
+    } catch (err) {
+      console.warn('[邮件] 发送失败:', err.message);
+      res.status(500).json({ error: '验证码发送失败，请检查邮箱地址或稍后重试' });
+    }
+  });
+
+  // 注册（需要验证码）
   app.post('/api/register', async (req, res) => {
-    const { password, email } = req.body;
+    const { password, email, code } = req.body;
     const safePassword = typeof password === 'string' ? password : '';
     const safeEmail = typeof email === 'string' ? email.trim() : '';
+    const safeCode = typeof code === 'string' ? code.trim() : '';
 
     if (!safePassword || !safeEmail) {
       return res.status(400).json({ error: '邮箱和密码不能为空' });
     }
 
-    const emailRuleError = getEmailRuleError(safeEmail);
-    if (emailRuleError) {
-      return res.status(400).json({ error: emailRuleError });
+    const emailError = getEmailRuleError(safeEmail);
+    if (emailError) {
+      return res.status(400).json({ error: emailError });
+    }
+
+    if (!safeCode) {
+      return res.status(400).json({ error: '请输入邮箱验证码' });
+    }
+
+    if (!verifyCode(safeEmail, safeCode)) {
+      return res.status(400).json({ error: '验证码错误或已过期，请重新获取' });
     }
 
     if (!REGISTER_PASSWORD_RULE.test(safePassword)) {
@@ -34,7 +70,7 @@ const registerAuthRoutes = (app) => {
 
       const [existingEmail] = await conn.execute('SELECT * FROM User WHERE email = ?', [safeEmail]);
       if (existingEmail.length > 0) {
-        return res.status(400).json({ error: '该邮箱已被注册' });
+        return res.status(400).json({ error: '该邮箱已被注册，请直接登录' });
       }
 
       let userName;
@@ -59,6 +95,7 @@ const registerAuthRoutes = (app) => {
     }
   });
 
+  // 登录
   app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
 
@@ -87,6 +124,43 @@ const registerAuthRoutes = (app) => {
     }
   });
 
+  // 重置密码
+  app.post('/api/auth/reset-password', async (req, res) => {
+    const { email, code, newPassword } = req.body;
+    const safeEmail = typeof email === 'string' ? email.trim() : '';
+    const safeCode = typeof code === 'string' ? code.trim() : '';
+    const safePassword = typeof newPassword === 'string' ? newPassword : '';
+
+    if (!safeEmail || !safeCode || !safePassword) {
+      return res.status(400).json({ error: '邮箱、验证码和新密码不能为空' });
+    }
+
+    if (!verifyCode(safeEmail, safeCode)) {
+      return res.status(400).json({ error: '验证码错误或已过期' });
+    }
+
+    if (!REGISTER_PASSWORD_RULE.test(safePassword)) {
+      return res.status(400).json({ error: '密码需为 8-16 位，且包含字母、数字和符号' });
+    }
+
+    let conn;
+    try {
+      conn = await createConnection();
+      const [users] = await conn.execute('SELECT id FROM User WHERE email = ?', [safeEmail]);
+      if (users.length === 0) {
+        return res.status(404).json({ error: '该邮箱未注册' });
+      }
+
+      await conn.execute('UPDATE User SET password = ? WHERE email = ?', [safePassword, safeEmail]);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    } finally {
+      if (conn) await conn.end();
+    }
+  });
+
+  // 修改用户资料
   app.put('/api/user/profile', async (req, res) => {
     const { userId, userName, avatar } = req.body;
 
