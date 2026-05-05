@@ -646,6 +646,10 @@ export default function LeafletMap() {
   const [tripFiles, setTripFiles] = useState<File[]>([]);
   const [tripSaving, setTripSaving] = useState(false);
   const [tripSearchQuery, setTripSearchQuery] = useState('');
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('darkMode') === '1';
+  });
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [pendingDeleteTripId, setPendingDeleteTripId] = useState<number | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
@@ -1354,7 +1358,8 @@ export default function LeafletMap() {
       >
         <MapInstanceBridge onMapReady={setMapInstance} />
         <TileLayer
-          url="https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}"
+          key={darkMode ? 'dark' : 'light'}
+          url={`https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=${darkMode ? 7 : 8}&x={x}&y={y}&z={z}`}
           subdomains={['1', '2', '3', '4']}
           minZoom={3}
           maxZoom={18}
@@ -1397,6 +1402,20 @@ export default function LeafletMap() {
           );
         })}
       </MapContainer>
+
+      {/* 黑夜模式切换 */}
+      <button
+        type="button"
+        onClick={() => {
+          const next = !darkMode;
+          setDarkMode(next);
+          localStorage.setItem('darkMode', next ? '1' : '0');
+        }}
+        className="absolute bottom-6 left-4 z-[1000] flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md backdrop-blur-sm hover:bg-white transition-colors"
+        title={darkMode ? '切换日间模式' : '切换夜间模式'}
+      >
+        {darkMode ? '☀️' : '🌙'}
+      </button>
 
       <BottomControlBar
         groupCode={groupCode}
