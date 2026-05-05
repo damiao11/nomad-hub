@@ -182,7 +182,16 @@ const registerSearchRoutes = (app) => {
         8000
       );
 
-      const nominatimResults = Array.isArray(nominatimPayload) ? nominatimPayload.map(mapNominatimResult) : [];
+      let nominatimResults = Array.isArray(nominatimPayload) ? nominatimPayload.map(mapNominatimResult) : [];
+
+      // 有用户位置时按距离排序
+      if (hasLocation && nominatimResults.length > 0) {
+        nominatimResults = nominatimResults.sort((a, b) => {
+          return haversineKm(userLat, userLng, Number(a.lat), Number(a.lon))
+               - haversineKm(userLat, userLng, Number(b.lat), Number(b.lon));
+        });
+      }
+
       if (nominatimResults.length > 0) {
         return res.json(nominatimResults);
       }
@@ -205,9 +214,17 @@ const registerSearchRoutes = (app) => {
       );
 
       const features = Array.isArray(photonPayload?.features) ? photonPayload.features : [];
-      const photonResults = features
+      let photonResults = features
         .map((feature, index) => mapPhotonResult(feature, index))
         .filter(Boolean);
+
+      // 有用户位置时按距离排序
+      if (hasLocation && photonResults.length > 0) {
+        photonResults = photonResults.sort((a, b) => {
+          return haversineKm(userLat, userLng, Number(a.lat), Number(a.lon))
+               - haversineKm(userLat, userLng, Number(b.lat), Number(b.lon));
+        });
+      }
 
       if (photonResults.length > 0) {
         return res.json(photonResults);
