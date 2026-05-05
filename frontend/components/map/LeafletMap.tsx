@@ -656,6 +656,7 @@ export default function LeafletMap() {
   const [editingTripOriginalPhoto, setEditingTripOriginalPhoto] = useState('');
   const [editTripName, setEditTripName] = useState('');
   const [editTripNote, setEditTripNote] = useState('');
+  const [editTripCategory, setEditTripCategory] = useState('');
   const [editTripFiles, setEditTripFiles] = useState<File[]>([]);
   const [editImageMode, setEditImageMode] = useState<'keep' | 'replace' | 'clear'>('keep');
   const [editTripSaving, setEditTripSaving] = useState(false);
@@ -1002,6 +1003,7 @@ export default function LeafletMap() {
     setPendingTripPosition(normalized);
     setTripName('');
     setTripNote('');
+    setTripCategory('');
     setTripFiles([]);
     setTripFormOpen(true);
   };
@@ -1018,6 +1020,7 @@ export default function LeafletMap() {
     setEditingTripId(trip.id);
     setEditTripName(typeof trip.name === 'string' ? trip.name : '');
     setEditTripNote(typeof trip.note === 'string' ? trip.note : '');
+    setEditTripCategory(typeof trip.category === 'string' ? trip.category : '');
     setEditingTripOriginalPhoto(normalizeTripPhotoPayload(trip.photoUrl));
     setEditTripFiles([]);
     setEditImageMode('keep');
@@ -1059,6 +1062,7 @@ export default function LeafletMap() {
       const result = await createTrip({
         name: trimmedName,
         note: tripNote.trim(),
+        category: tripCategory,
         photoUrl,
         lat: pendingTripPosition[0],
         lng: pendingTripPosition[1],
@@ -1121,6 +1125,7 @@ export default function LeafletMap() {
         userId,
         name: trimmedName,
         note: editTripNote.trim(),
+        category: editTripCategory,
         photoUrl,
       });
 
@@ -1177,10 +1182,11 @@ export default function LeafletMap() {
     if (!query) return;
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/search/places?q=${encodeURIComponent(query)}&limit=8`,
-        { method: 'GET', cache: 'no-store' }
-      );
+      let searchUrl = `${API_BASE_URL}/api/search/places?q=${encodeURIComponent(query)}&limit=8`;
+      if (myPosition) {
+        searchUrl += `&lat=${myPosition[0]}&lng=${myPosition[1]}`;
+      }
+      const response = await fetch(searchUrl, { method: 'GET', cache: 'no-store' });
       if (!response.ok) {
         setSearchResults([]);
         const errorData = await response.json().catch(() => ({}));
@@ -1308,10 +1314,12 @@ export default function LeafletMap() {
         tripName={tripName}
         tripNote={tripNote}
         tripFiles={tripFiles}
+        tripCategory={tripCategory}
         tripSaving={tripSaving}
         onClose={closeTripForm}
         onTripNameChange={setTripName}
         onTripNoteChange={setTripNote}
+        onTripCategoryChange={setTripCategory}
         onTripFilesChange={setTripFiles}
         onSubmit={submitTripForm}
       />
@@ -1321,6 +1329,7 @@ export default function LeafletMap() {
         editTripName={editTripName}
         editTripNote={editTripNote}
         editTripFiles={editTripFiles}
+        editTripCategory={editTripCategory}
         editTripSaving={editTripSaving}
         editTripHasImages={editTripHasImages}
         existingImageCount={editingTripOriginalImages.length}
@@ -1329,6 +1338,7 @@ export default function LeafletMap() {
         onClose={closeEditTripForm}
         onEditTripNameChange={setEditTripName}
         onEditTripNoteChange={setEditTripNote}
+        onEditTripCategoryChange={setEditTripCategory}
         onEditTripFilesChange={setEditTripFiles}
         onEditImageModeChange={setEditImageMode}
         onSubmit={submitEditTripForm}

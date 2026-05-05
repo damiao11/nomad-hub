@@ -113,13 +113,23 @@ const withTimeout = async (url, headers, timeoutMs) => {
   }
 };
 
-const searchLocalFallback = (query, limit) => {
+const searchLocalFallback = (query, limit, userLat, userLng) => {
   const lower = query.trim().toLowerCase();
   if (!lower) return [];
 
-  return LOCAL_CITY_FALLBACKS
-    .filter((item) => item.name.includes(query) || item.aliases.some((alias) => alias.includes(lower)))
-    .slice(0, limit)
+  const hasLocation = Number.isFinite(userLat) && Number.isFinite(userLng);
+
+  let matches = LOCAL_CITY_FALLBACKS
+    .filter((item) => item.name.includes(query) || item.aliases.some((alias) => alias.includes(lower)));
+
+  // 有用户位置时按距离排序
+  if (hasLocation) {
+    matches = matches.sort((a, b) => {
+      return haversineKm(userLat, userLng, a.lat, a.lon) - haversineKm(userLat, userLng, b.lat, b.lon);
+    });
+  }
+
+  return matches.slice(0, limit)
     .map((item, index) => ({
       place_id: 1000000 + index,
       lat: String(item.lat),
@@ -131,9 +141,21 @@ const searchLocalFallback = (query, limit) => {
 };
 
 const registerSearchRoutes = (app) => {
+  // Haversine 距离计算（公里）
+  const haversineKm = (lat1, lng1, lat2, lng2) => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
   app.get('/api/search/places', async (req, res) => {
     const query = typeof req.query.q === 'string' ? req.query.q.trim() : '';
     const limit = parseLimit(req.query.limit);
+    const userLat = Number(req.query.lat);
+    const userLng = Number(req.query.lng);
+    const hasLocation = Number.isFinite(userLat) && Number.isFinite(userLng);
 
     if (!query) {
       return res.status(400).json({ error: '搜索关键词不能为空' });
@@ -146,6 +168,11 @@ const registerSearchRoutes = (app) => {
         limit: String(limit),
         addressdetails: '0',
       });
+      // 有用户位置时限制搜索范围
+      if (hasLocation) {
+        nominatimParams.set('viewbox', `${userLng - 2},${userLat - 1},${userLng + 2},${userLat + 1}`);
+        nominatimParams.set('bounded', '0');
+      }
       const nominatimPayload = await withTimeout(
         `${NOMINATIM_BASE_URL}?${nominatimParams.toString()}`,
         {
@@ -189,7 +216,7 @@ const registerSearchRoutes = (app) => {
       console.warn('[search] photon failed:', error?.message || error);
     }
 
-    const localResults = searchLocalFallback(query, limit);
+    const localResults = searchLocalFallback(query, limit, userLat, userLng);
     if (localResults.length > 0) {
       return res.json(localResults);
     }

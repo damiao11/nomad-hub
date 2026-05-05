@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 type TripCreatePayload = {
   name: string;
   note: string;
+  category?: string;
   photoUrl: string;
   lat: number;
   lng: number;
@@ -14,6 +15,7 @@ type TripUpdatePayload = {
   userId: string;
   name: string;
   note: string;
+  category?: string;
   photoUrl: string;
 };
 

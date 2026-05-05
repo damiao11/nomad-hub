@@ -6,20 +6,24 @@ type TripCreateDialogProps = {
   open: boolean;
   tripName: string;
   tripNote: string;
+  tripCategory: string;
   tripFiles: File[];
   tripSaving: boolean;
   onClose: () => void;
   onTripNameChange: (value: string) => void;
   onTripNoteChange: (value: string) => void;
+  onTripCategoryChange: (value: string) => void;
   onTripFilesChange: (files: File[]) => void;
   onSubmit: () => void;
 };
 
+const CATEGORIES = ['美食', '风景', '住宿', '交通', '购物', '其他'];
+
 const MAX_FILES = 3;
 
 const TripCreateDialog = memo(function TripCreateDialog({
-  open, tripName, tripNote, tripFiles, tripSaving,
-  onClose, onTripNameChange, onTripNoteChange, onTripFilesChange, onSubmit,
+  open, tripName, tripNote, tripCategory, tripFiles, tripSaving,
+  onClose, onTripNameChange, onTripNoteChange, onTripCategoryChange, onTripFilesChange, onSubmit,
 }: TripCreateDialogProps) {
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -53,6 +57,18 @@ const TripCreateDialog = memo(function TripCreateDialog({
         <textarea placeholder="简介（可选）" value={tripNote}
           onChange={(e) => onTripNoteChange(e.target.value)}
           className="h-20 w-full resize-none rounded border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#7E9D82]" />
+
+        {/* 分类选择 */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-slate-500">分类：</span>
+          {CATEGORIES.map((cat) => (
+            <button key={cat} type="button"
+              onClick={() => onTripCategoryChange(tripCategory === cat ? '' : cat)}
+              className={`rounded-full px-3 py-1 text-xs transition-colors ${tripCategory === cat ? 'bg-[#7E9D82] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+              {cat}
+            </button>
+          ))}
+        </div>
 
         {/* 照片逐张添加 */}
         <div className="space-y-2">
