@@ -117,6 +117,22 @@ const ensureUserBannedColumn = async () => {
   }
 };
 
+const ensureTripIsPublicColumn = async () => {
+  let conn;
+  try {
+    conn = await createConnection();
+    const [columns] = await conn.execute('SHOW COLUMNS FROM Trip LIKE "isPublic"');
+    if (columns.length === 0) {
+      await conn.execute("ALTER TABLE Trip ADD COLUMN isPublic TINYINT(1) DEFAULT 1 AFTER category");
+      console.log('✅ 已为 Trip 表添加 isPublic 列');
+    }
+  } catch (err) {
+    console.warn('⚠️ 自动为 Trip 表添加 isPublic 列失败：', err.message);
+  } finally {
+    if (conn) await conn.end();
+  }
+};
+
 const ensureTripCategoryColumn = async () => {
   let conn;
   try {
@@ -143,4 +159,5 @@ module.exports = {
   ensureUserAdminColumn,
   ensureUserBannedColumn,
   ensureTripCategoryColumn,
+  ensureTripIsPublicColumn,
 };

@@ -223,6 +223,7 @@ export function useGroupChat({
     chatOpenRef.current = chatOpen;
     if (chatOpen) {
       setChatUnread(0);
+      socket.emit('mark-read');
     }
   }, [chatOpen]);
 

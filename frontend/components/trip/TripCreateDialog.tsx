@@ -7,12 +7,14 @@ type TripCreateDialogProps = {
   tripName: string;
   tripNote: string;
   tripCategory: string;
+  tripIsPublic: boolean;
   tripFiles: File[];
   tripSaving: boolean;
   onClose: () => void;
   onTripNameChange: (value: string) => void;
   onTripNoteChange: (value: string) => void;
   onTripCategoryChange: (value: string) => void;
+  onTripIsPublicChange: (value: boolean) => void;
   onTripFilesChange: (files: File[]) => void;
   onSubmit: () => void;
 };
@@ -22,8 +24,8 @@ const CATEGORIES = ['美食', '风景', '住宿', '交通', '购物', '其他'];
 const MAX_FILES = 3;
 
 const TripCreateDialog = memo(function TripCreateDialog({
-  open, tripName, tripNote, tripCategory, tripFiles, tripSaving,
-  onClose, onTripNameChange, onTripNoteChange, onTripCategoryChange, onTripFilesChange, onSubmit,
+  open, tripName, tripNote, tripCategory, tripIsPublic, tripFiles, tripSaving,
+  onClose, onTripNameChange, onTripNoteChange, onTripCategoryChange, onTripIsPublicChange, onTripFilesChange, onSubmit,
 }: TripCreateDialogProps) {
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -68,6 +70,17 @@ const TripCreateDialog = memo(function TripCreateDialog({
               {cat}
             </button>
           ))}
+        </div>
+
+        {/* 公开/私密切换 */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-500">可见性：</span>
+          <button type="button"
+            onClick={() => onTripIsPublicChange(!tripIsPublic)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${tripIsPublic ? 'bg-[#7E9D82]' : 'bg-gray-300'}`}>
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${tripIsPublic ? 'translate-x-6' : 'translate-x-1'}`} />
+          </button>
+          <span className="text-xs text-slate-400">{tripIsPublic ? '群友可见' : '仅自己可见'}</span>
         </div>
 
         {/* 照片逐张添加 */}

@@ -44,7 +44,9 @@ const GroupChatPanel = memo(function GroupChatPanel({
       <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
         <div className="text-sm font-semibold text-slate-800">
           群聊 {groupCode ? `(${groupCode})` : ''}
-          <span className="ml-2 text-[10px] text-slate-400">{groupMembers.filter((m) => m.online).length} 在线</span>
+          <span className="ml-2 text-[10px] text-slate-400">
+            {groupMembers.filter((m) => m.online).length} 在线 · {groupMembers.filter((m: any) => m.lastReadAt).length} 已读
+          </span>
         </div>
         <button onClick={onClose} className="text-slate-500 hover:text-slate-700 text-lg leading-none">&times;</button>
       </div>

@@ -51,6 +51,7 @@ const serializeMembers = (group) => {
       role: member.role,
       muted: member.muted,
       online: member.online,
+      lastReadAt: member.lastReadAt || null,
       lastSeen: member.lastSeen,
       lat: typeof member.lastLat === 'number' ? member.lastLat : null,
       lng: typeof member.lastLng === 'number' ? member.lastLng : null,
@@ -565,6 +566,19 @@ const registerGroupSocketHandlers = (io) => {
       } finally {
         if (conn) await conn.end();
       }
+    });
+
+    // 标记已读：用户打开聊天面板
+    socket.on('mark-read', () => {
+      const code = socket.data.groupCode;
+      const memberId = socket.data.memberId;
+      if (!code || !groups.has(code) || !memberId) return;
+
+      const group = groups.get(code);
+      if (group.members[memberId]) {
+        group.members[memberId].lastReadAt = new Date().toISOString();
+      }
+      emitGroupMembers(code);
     });
 
     socket.on('disconnect', () => {

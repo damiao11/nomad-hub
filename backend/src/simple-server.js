@@ -3,7 +3,7 @@ require('dotenv').config();
 const { createApp } = require('./app');
 const { createServer } = require('./server');
 const { SERVER_HOST, SERVER_PORT } = require('./config/constants');
-const { ensureTripPhotoLongText, ensureUserEmailColumn, ensureUserAvatarColumn, ensureChatMessagesTable, ensureUserAdminColumn, ensureUserBannedColumn, ensureTripCategoryColumn } = require('./db/mysql');
+const { ensureTripPhotoLongText, ensureUserEmailColumn, ensureUserAvatarColumn, ensureChatMessagesTable, ensureUserAdminColumn, ensureUserBannedColumn, ensureTripCategoryColumn, ensureTripIsPublicColumn } = require('./db/mysql');
 
 const app = createApp();
 const { server } = createServer(app);
@@ -23,3 +23,4 @@ ensureChatMessagesTable();
 ensureUserAdminColumn();
 ensureUserBannedColumn();
 ensureTripCategoryColumn();
+ensureTripIsPublicColumn();

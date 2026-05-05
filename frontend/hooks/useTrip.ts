@@ -4,6 +4,7 @@ type TripCreatePayload = {
   name: string;
   note: string;
   category?: string;
+  isPublic?: boolean;
   photoUrl: string;
   lat: number;
   lng: number;
@@ -16,6 +17,7 @@ type TripUpdatePayload = {
   name: string;
   note: string;
   category?: string;
+  isPublic?: boolean;
   photoUrl: string;
 };
 
