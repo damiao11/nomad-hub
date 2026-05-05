@@ -1,25 +1,40 @@
 const { createConnection, normalizePhotoPayload } = require('../db/mysql');
 const { moderateText } = require('../utils/contentModeration');
 
+const SELECT_TRIP = 'SELECT id, name, lat, lng, userId, createdAt, IFNULL(note, "") AS note, IFNULL(photoUrl, "") AS photoUrl, IFNULL(category, "") AS category FROM Trip';
+
 const registerTripRoutes = (app) => {
   app.get('/api/trips', async (req, res) => {
-    const { userId } = req.query;
+    const { userId, q, category } = req.query;
     let conn;
     try {
       conn = await createConnection();
-      let rows;
+      let sql = SELECT_TRIP;
+      const conditions = [];
+      const params = [];
 
       if (userId) {
-        [rows] = await conn.execute(
-          'SELECT id, name, lat, lng, userId, createdAt, IFNULL(note, "") AS note, IFNULL(photoUrl, "") AS photoUrl FROM Trip WHERE userId = ? ORDER BY createdAt DESC',
-          [userId]
-        );
-      } else {
-        [rows] = await conn.execute(
-          'SELECT id, name, lat, lng, userId, createdAt, IFNULL(note, "") AS note, IFNULL(photoUrl, "") AS photoUrl FROM Trip ORDER BY createdAt DESC'
-        );
+        conditions.push('userId = ?');
+        params.push(userId);
       }
 
+      if (typeof q === 'string' && q.trim() !== '') {
+        conditions.push('(name LIKE ? OR note LIKE ?)');
+        params.push(`%${q.trim()}%`, `%${q.trim()}%`);
+      }
+
+      if (typeof category === 'string' && category.trim() !== '') {
+        conditions.push('category = ?');
+        params.push(category.trim());
+      }
+
+      if (conditions.length > 0) {
+        sql += ' WHERE ' + conditions.join(' AND ');
+      }
+
+      sql += ' ORDER BY createdAt DESC';
+
+      const [rows] = await conn.execute(sql, params);
       res.json(rows);
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -29,15 +44,15 @@ const registerTripRoutes = (app) => {
   });
 
   app.post('/api/trips', async (req, res) => {
-    const { name, lat, lng, userId, note, photoUrl } = req.body;
+    const { name, lat, lng, userId, note, photoUrl, category } = req.body;
     const safeNote = typeof note === 'string' ? note : '';
     const safePhotoUrl = normalizePhotoPayload(photoUrl);
+    const safeCategory = typeof category === 'string' ? category.trim().slice(0, 20) : '';
 
     if (!userId) {
       return res.status(400).json({ error: '必须提供 userId' });
     }
 
-    // 审核足迹名称和备注
     if (name) {
       const nameCheck = await moderateText(name);
       if (!nameCheck.pass) {
@@ -55,8 +70,8 @@ const registerTripRoutes = (app) => {
     try {
       conn = await createConnection();
       await conn.execute(
-        'INSERT INTO Trip (name, lat, lng, userId, note, photoUrl) VALUES (?, ?, ?, ?, ?, ?)',
-        [name, lat, lng, userId, safeNote, safePhotoUrl]
+        'INSERT INTO Trip (name, lat, lng, userId, note, photoUrl, category) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [name, lat, lng, userId, safeNote, safePhotoUrl, safeCategory]
       );
       res.json({ success: true });
     } catch (err) {
@@ -68,7 +83,7 @@ const registerTripRoutes = (app) => {
 
   app.put('/api/trips/:id', async (req, res) => {
     const { id } = req.params;
-    const { userId, name, note, photoUrl } = req.body;
+    const { userId, name, note, photoUrl, category } = req.body;
 
     if (!userId) {
       return res.status(400).json({ error: '必须提供 userId' });
@@ -79,7 +94,6 @@ const registerTripRoutes = (app) => {
       return res.status(400).json({ error: '足迹名称不能为空' });
     }
 
-    // 审核足迹名称和备注
     const nameCheck = await moderateText(safeName);
     if (!nameCheck.pass) {
       return res.status(400).json({ error: nameCheck.reason || '足迹名称包含违规内容' });
@@ -93,13 +107,14 @@ const registerTripRoutes = (app) => {
       }
     }
     const safePhotoUrl = normalizePhotoPayload(photoUrl);
+    const safeCategory = typeof category === 'string' ? category.trim().slice(0, 20) : '';
 
     let conn;
     try {
       conn = await createConnection();
       const [result] = await conn.execute(
-        'UPDATE Trip SET name = ?, note = ?, photoUrl = ? WHERE id = ? AND userId = ?',
-        [safeName, safeNote, safePhotoUrl, id, userId]
+        'UPDATE Trip SET name = ?, note = ?, photoUrl = ?, category = ? WHERE id = ? AND userId = ?',
+        [safeName, safeNote, safePhotoUrl, safeCategory, id, userId]
       );
 
       if (result.affectedRows > 0) {

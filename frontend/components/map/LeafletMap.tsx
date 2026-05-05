@@ -2,7 +2,10 @@
 
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import L from 'leaflet';
+import 'leaflet.markercluster';
 import { useEffect, useRef, useState } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { io } from 'socket.io-client';
@@ -399,6 +402,112 @@ const toStoragePosition = (lat: number, lng: number, useGcj: boolean): [number, 
   return gcj02ToWgs84(lat, lng);
 };
 
+// 足迹分类颜色
+const CATEGORY_COLORS: Record<string, string> = {
+  '美食': '#ef4444', '风景': '#22c55e', '住宿': '#3b82f6',
+  '交通': '#f59e0b', '购物': '#a855f7', '其他': '#6b7280',
+};
+
+const CATEGORIES = ['美食', '风景', '住宿', '交通', '购物', '其他'];
+
+const createTripClusterIcon = (color: string) => {
+  return L.divIcon({
+    className: 'trip-cluster-icon',
+    html: `<div style="background:${color};width:28px;height:28px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
+};
+
+function TripMarkers({ trips, onEdit, onDelete, onImageClick }: {
+  trips: any[];
+  onEdit: (trip: any) => void;
+  onDelete: (id: number) => void;
+  onImageClick: (images: PreviewImageItem[], index: number) => void;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    const clusterGroup = (L as any).markerClusterGroup({
+      chunkedLoading: true,
+      maxClusterRadius: 50,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+      zoomToBoundsOnClick: true,
+      iconCreateFunction: (cluster: any) => {
+        const count = cluster.getChildCount();
+        return L.divIcon({
+          html: `<div style="background:#7E9D82;color:white;width:${count > 10 ? 40 : 32}px;height:${count > 10 ? 40 : 32}px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:${count > 10 ? 13 : 11}px;font-weight:bold;border:3px solid white;box-shadow:0 2px 10px rgba(0,0,0,0.3)">${count}</div>`,
+          iconSize: L.point(count > 10 ? 40 : 32, count > 10 ? 40 : 32),
+          className: '',
+        });
+      },
+    });
+
+    trips.forEach((trip) => {
+      const color = CATEGORY_COLORS[trip.category] || CATEGORY_COLORS['其他'];
+      const icon = createTripClusterIcon(color);
+      const pos: [number, number] = toMapPosition(trip.lat, trip.lng, true);
+
+      const tripImages = parseTripImages(trip.photoUrl).map((image, index) => ({
+        src: image,
+        alt: `${trip.name}-${index + 1}`,
+      }));
+
+      const marker = L.marker(pos, { icon });
+
+      const popupContent = `
+        <div style="min-width:200px;padding:4px">
+          ${tripImages.map((item: PreviewImageItem, i: number) => `
+            <img src="${item.src}" alt="${item.alt}" style="width:100%;height:80px;object-fit:cover;border-radius:6px;cursor:pointer;margin-bottom:4px" onclick="window.__tripImgClick && window.__tripImgClick('${trip.id}', ${i})" />
+          `).join('')}
+          <div style="font-size:13px;font-weight:600;color:#333">${trip.category ? '<span style="display:inline-block;background:' + (CATEGORY_COLORS[trip.category] || CATEGORY_COLORS['其他']) + ';color:white;font-size:10px;padding:1px 6px;border-radius:4px;margin-right:4px">' + trip.category + '</span>' : ''}${trip.name}</div>
+          <p style="font-size:11px;color:#888;margin:4px 0">${trip.note || ''}</p>
+          <div style="font-size:10px;color:#aaa;margin-bottom:4px">${new Date(trip.createdAt).toLocaleString()}</div>
+          <button onclick="window.__tripEdit && window.__tripEdit('${trip.id}')" style="background:#7E9D82;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:11px;margin-right:4px;cursor:pointer">修改</button>
+          <button onclick="window.__tripDelete && window.__tripDelete('${trip.id}')" style="background:#ef4444;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer">删除</button>
+        </div>`;
+
+      marker.bindPopup(popupContent);
+      clusterGroup.addLayer(marker);
+    });
+
+    map.addLayer(clusterGroup);
+
+    return () => {
+      map.removeLayer(clusterGroup);
+      clusterGroup.clearLayers();
+    };
+  }, [trips, map]);
+
+  // 全局回调绑定
+  useEffect(() => {
+    (window as any).__tripEdit = (id: string) => {
+      const trip = trips.find((t) => String(t.id) === String(id));
+      if (trip) onEdit(trip);
+    };
+    (window as any).__tripDelete = (id: string) => {
+      onDelete(Number(id));
+    };
+    (window as any).__tripImgClick = (tripId: string, index: number) => {
+      const trip = trips.find((t) => String(t.id) === String(tripId));
+      if (trip) {
+        const images = parseTripImages(trip.photoUrl).map((image, i) => ({
+          src: image, alt: `${trip.name}-${i + 1}`,
+        }));
+        onImageClick(images, index);
+      }
+    };
+    return () => {
+      delete (window as any).__tripEdit;
+      delete (window as any).__tripDelete;
+      delete (window as any).__tripImgClick;
+    };
+  }, [trips, onEdit, onDelete, onImageClick]);
+
+  return null;
+}
+
 function MapInstanceBridge({ onMapReady }: { onMapReady: (map: L.Map) => void }) {
   const map = useMap();
 
@@ -533,8 +642,10 @@ export default function LeafletMap() {
   const [pendingTripPosition, setPendingTripPosition] = useState<[number, number] | null>(null);
   const [tripName, setTripName] = useState('');
   const [tripNote, setTripNote] = useState('');
+  const [tripCategory, setTripCategory] = useState('');
   const [tripFiles, setTripFiles] = useState<File[]>([]);
   const [tripSaving, setTripSaving] = useState(false);
+  const [tripSearchQuery, setTripSearchQuery] = useState('');
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [pendingDeleteTripId, setPendingDeleteTripId] = useState<number | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
@@ -1253,60 +1364,13 @@ export default function LeafletMap() {
         {/* 实时定位逻辑 */}
         <LiveLocationTracker onOthersUpdate={setOthers} onMyPositionUpdate={setMyPosition} onMyAccuracyUpdate={setMyAccuracy} useGcjOffset={useGcjOffset} shareEnabled={isSharingEnabled} groupCode={groupCode} currentUserName={userName} currentUserId={userId} />
 
-        {/* 渲染：MySQL 里的永久足迹 */}
-        {savedTrips.map((trip) => (
-          (() => {
-            const tripPosition = toMapPosition(trip.lat, trip.lng, useGcjOffset);
-            const tripImages = parseTripImages(trip.photoUrl).map((image, index) => ({
-              src: image,
-              alt: `${trip.name}-${index + 1}`,
-            }));
-            return (
-          <Marker 
-            key={`trip-${trip.id}`} 
-            position={tripPosition}
-            icon={savedTripIcon}
-          >
-            <Popup>
-              <div className="min-w-[220px] space-y-2 p-1">
-                {tripImages.map((item, index) => (
-                  <button
-                    key={`${trip.id}-image-${index}`}
-                    type="button"
-                    onClick={() => openImagePreview(tripImages, index)}
-                    className="block w-full overflow-hidden rounded-md"
-                  >
-                    <img
-                      src={item.src}
-                      alt={item.alt}
-                      className="h-32 w-full cursor-zoom-in object-cover transition-opacity hover:opacity-90"
-                    />
-                  </button>
-                ))}
-                <div className="text-sm font-semibold text-slate-800">足迹</div>
-                <div className="text-sm font-medium text-slate-700">{trip.name}</div>
-                <p className="text-xs italic text-gray-500">{trip.note}</p>
-                <div className="text-[10px] text-gray-400">
-                  存入时间：{new Date(trip.createdAt).toLocaleString()}
-                </div>
-                <button
-                  onClick={() => openEditTripForm(trip)}
-                  className="w-full bg-[#7E9D82] hover:bg-[#6F8B73] text-white text-[11px] py-1 px-2 rounded shadow-sm transition-colors duration-200"
-                >
-                  修改此足迹
-                </button>
-                <button 
-                  onClick={() => requestDeleteTrip(trip.id)}
-                  className="w-full bg-red-500 hover:bg-red-600 text-white text-[11px] py-1 px-2 rounded shadow-sm transition-colors duration-200"
-                >
-                  删除此足迹
-                </button>
-              </div>
-            </Popup>
-          </Marker>
-            );
-          })()
-        ))}
+        {/* 聚类足迹标记 */}
+        <TripMarkers
+          trips={savedTrips}
+          onEdit={openEditTripForm}
+          onDelete={requestDeleteTrip}
+          onImageClick={openImagePreview}
+        />
 
         {/* 渲染：Socket.io 在线其他用户 */}
         {Object.keys(others).map((id) => {

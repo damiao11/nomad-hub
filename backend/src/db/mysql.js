@@ -117,6 +117,22 @@ const ensureUserBannedColumn = async () => {
   }
 };
 
+const ensureTripCategoryColumn = async () => {
+  let conn;
+  try {
+    conn = await createConnection();
+    const [columns] = await conn.execute('SHOW COLUMNS FROM Trip LIKE "category"');
+    if (columns.length === 0) {
+      await conn.execute("ALTER TABLE Trip ADD COLUMN category VARCHAR(20) DEFAULT '' AFTER note");
+      console.log('✅ 已为 Trip 表添加 category 列');
+    }
+  } catch (err) {
+    console.warn('⚠️ 自动为 Trip 表添加 category 列失败：', err.message);
+  } finally {
+    if (conn) await conn.end();
+  }
+};
+
 module.exports = {
   createConnection,
   normalizePhotoPayload,
@@ -126,4 +142,5 @@ module.exports = {
   ensureChatMessagesTable,
   ensureUserAdminColumn,
   ensureUserBannedColumn,
+  ensureTripCategoryColumn,
 };
