@@ -1,4 +1,14 @@
 const { moderateText } = require('../utils/contentModeration');
+
+const escapeHtml = (text) => {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 const groups = new Map();
 
 const normalizeMemberId = (value) => {
@@ -55,8 +65,8 @@ const serializeMembers = (group) => {
 
 const buildChatMessage = (userName, text) => ({
   id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-  userName: typeof userName === 'string' && userName.trim() !== '' ? userName.trim() : '匿名游民',
-  text: typeof text === 'string' ? text.trim() : '',
+  userName: escapeHtml(typeof userName === 'string' && userName.trim() !== '' ? userName.trim() : '匿名游民'),
+  text: escapeHtml(typeof text === 'string' ? text.trim() : ''),
   createdAt: new Date().toISOString(),
 });
 

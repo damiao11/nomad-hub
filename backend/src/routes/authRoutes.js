@@ -1,8 +1,12 @@
+const bcrypt = require('bcryptjs');
 const { createConnection } = require('../db/mysql');
 const { REGISTER_PASSWORD_RULE, REGISTER_EMAIL_RULE, getEmailRuleError } = require('../utils/authRules');
 const { moderateText } = require('../utils/contentModeration');
 const { sendVerificationCode } = require('../utils/mailer');
 const { setCode, verifyCode, canSend } = require('../utils/verificationCodes');
+const { checkLoginRate, checkSendCodeRate } = require('../utils/rateLimiter');
+
+const BCRYPT_ROUNDS = 10;
 
 const generateRandomName = () => {
   const adj = ['游牧', '自由', '远行', '探险', '流浪', '追风', '踏月', '逐日', '乘风', '山海'];
@@ -20,6 +24,11 @@ const registerAuthRoutes = (app) => {
     const emailError = getEmailRuleError(safeEmail);
     if (emailError) {
       return res.status(400).json({ error: emailError });
+    }
+
+    const codeRate = checkSendCodeRate(safeEmail);
+    if (codeRate.blocked) {
+      return res.status(429).json({ error: `发送太频繁，请${codeRate.retryAfter}秒后再试` });
     }
 
     if (!canSend(safeEmail)) {
@@ -82,7 +91,8 @@ const registerAuthRoutes = (app) => {
         attempts++;
       }
 
-      await conn.execute('INSERT INTO User (userName, password, email) VALUES (?, ?, ?)', [userName, safePassword, safeEmail]);
+      const hash = await bcrypt.hash(safePassword, BCRYPT_ROUNDS);
+      await conn.execute('INSERT INTO User (userName, password, email) VALUES (?, ?, ?)', [userName, hash, safeEmail]);
 
       const [users] = await conn.execute('SELECT id, userName, IFNULL(avatar, "") AS avatar FROM User WHERE email = ?', [safeEmail]);
       const user = users[0];
@@ -99,6 +109,12 @@ const registerAuthRoutes = (app) => {
   app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
 
+    const ip = req.ip || req.connection?.remoteAddress || '0.0.0.0';
+    const rate = checkLoginRate(ip);
+    if (rate.blocked) {
+      return res.status(429).json({ error: `登录尝试过多，请${rate.retryAfter}秒后再试` });
+    }
+
     if (!email || !password) {
       return res.status(400).json({ error: '邮箱和密码不能为空' });
     }
@@ -106,16 +122,20 @@ const registerAuthRoutes = (app) => {
     let conn;
     try {
       conn = await createConnection();
-      const [users] = await conn.execute(
-        'SELECT id, userName, IFNULL(avatar, "") AS avatar FROM User WHERE email = ? AND password = ?',
-        [email, password]
+      const [rows] = await conn.execute(
+        'SELECT id, userName, password, IFNULL(avatar, "") AS avatar FROM User WHERE email = ?',
+        [email]
       );
 
-      if (users.length === 0) {
+      if (rows.length === 0) {
         return res.status(401).json({ error: '邮箱或密码错误' });
       }
 
-      const user = users[0];
+      const user = rows[0];
+      const match = await bcrypt.compare(password, user.password);
+      if (!match) {
+        return res.status(401).json({ error: '邮箱或密码错误' });
+      }
       res.json({ success: true, id: user.id, userName: user.userName, avatar: user.avatar });
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -151,7 +171,8 @@ const registerAuthRoutes = (app) => {
         return res.status(404).json({ error: '该邮箱未注册' });
       }
 
-      await conn.execute('UPDATE User SET password = ? WHERE email = ?', [safePassword, safeEmail]);
+      const hash = await bcrypt.hash(safePassword, BCRYPT_ROUNDS);
+      await conn.execute('UPDATE User SET password = ? WHERE email = ?', [hash, safeEmail]);
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: err.message });
