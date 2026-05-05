@@ -8,6 +8,14 @@ export type GroupChatMessage = {
   createdAt: string;
 };
 
+export type GroupMember = {
+  memberId: string;
+  userName: string;
+  avatar: string;
+  role: string;
+  online: boolean;
+};
+
 type UseGroupChatParams = {
   socket: Socket;
   isLoggedIn: boolean;
@@ -36,6 +44,7 @@ export function useGroupChat({
   const [chatLoadingMore, setChatLoadingMore] = useState(false);
   const [chatUnread, setChatUnread] = useState(0);
   const [chatSending, setChatSending] = useState(false);
+  const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
   const chatOpenRef = useRef(false);
   const chatListRef = useRef<HTMLDivElement | null>(null);
   const chatLoadingMoreRef = useRef(false);
@@ -48,6 +57,7 @@ export function useGroupChat({
     setChatLoadingMore(false);
     chatLoadingMoreRef.current = false;
     setChatUnread(0);
+    setGroupMembers([]);
   };
 
   const requestGroupHistoryPage = async (offset: number, limit = CHAT_HISTORY_PAGE_SIZE) => {
@@ -279,9 +289,14 @@ export function useGroupChat({
       showNotice(payload?.reason || '你已被移出群组');
     };
 
+    const handleMembers = (members: GroupMember[]) => {
+      setGroupMembers(Array.isArray(members) ? members : []);
+    };
+
     socket.on('group-message', handleMessage);
     socket.on('group-error', handleGroupError);
     socket.on('kicked', handleKicked);
+    socket.on('group-members', handleMembers);
     socket.emit('join-group', { code: groupCode, userId, userName: userName || '匿名游民' });
     void loadLatestHistory();
 
@@ -290,6 +305,7 @@ export function useGroupChat({
       socket.off('group-message', handleMessage);
       socket.off('group-error', handleGroupError);
       socket.off('kicked', handleKicked);
+      socket.off('group-members', handleMembers);
     };
   }, [isLoggedIn, groupCode, userId, userName]);
 
@@ -328,6 +344,7 @@ export function useGroupChat({
     chatLoadingMore,
     chatUnread,
     chatSending,
+    groupMembers,
     chatListRef,
     loadOlderChatMessages,
     sendGroupMessage,

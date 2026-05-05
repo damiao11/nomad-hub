@@ -6,6 +6,7 @@ type UseGroupInviteParams = {
   isLoggedIn: boolean;
   userId: string | null;
   userName: string | null;
+  avatar: string | null;
   groupCode: string | null;
   setGroupCode: (value: string | null) => void;
   showNotice: (message: string, copyValue?: string | null) => void;
@@ -18,6 +19,7 @@ export function useGroupInvite({
   isLoggedIn,
   userId,
   userName,
+  avatar,
   groupCode,
   setGroupCode,
   showNotice,
@@ -108,7 +110,7 @@ export function useGroupInvite({
     }
 
     const result = await waitForGroupJoined(() => {
-      socket.emit('create-group', { userId, userName: userName || '匿名游民' });
+      socket.emit('create-group', { userId, userName: userName || '匿名游民', avatar: avatar || '' });
     });
 
     if (!result.ok || !result.code) {
@@ -141,7 +143,7 @@ export function useGroupInvite({
     }
 
     const result = await waitForGroupJoined(() => {
-      socket.emit('join-group', { code, userId, userName: userName || '匿名游民' });
+      socket.emit('join-group', { code, userId, userName: userName || '匿名游民', avatar: avatar || '' });
     });
 
     if (!result.ok || !result.code) {

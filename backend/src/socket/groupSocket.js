@@ -47,6 +47,7 @@ const serializeMembers = (group) => {
     .map((member) => ({
       memberId: member.memberId,
       userName: member.userName,
+      avatar: member.avatar || '',
       role: member.role,
       muted: member.muted,
       online: member.online,
@@ -179,7 +180,7 @@ const registerGroupSocketHandlers = (io) => {
     socket.data.userName = null;
   };
 
-  const joinGroupForSocket = (socket, code, memberId, userName, asOwner = false) => {
+  const joinGroupForSocket = (socket, code, memberId, userName, avatar, asOwner = false) => {
     removeSocketFromGroup(socket);
     socket.join(code);
     socket.data.groupCode = code;
@@ -191,6 +192,7 @@ const registerGroupSocketHandlers = (io) => {
       group.members[memberId] = {
         memberId,
         userName,
+        avatar: avatar || '',
         role: asOwner ? 'owner' : 'member',
         muted: false,
         online: true,
@@ -202,6 +204,7 @@ const registerGroupSocketHandlers = (io) => {
 
     const member = group.members[memberId];
     member.userName = userName;
+    if (avatar) member.avatar = avatar;
     member.online = true;
     member.lastSeen = new Date().toISOString();
     if (asOwner) {
@@ -267,6 +270,7 @@ const registerGroupSocketHandlers = (io) => {
       const userName = typeof _payload?.userName === 'string' && _payload.userName.trim() !== ''
         ? _payload.userName.trim()
         : '匿名游民';
+      const avatar = typeof _payload?.avatar === 'string' ? _payload.avatar : '';
       if (!memberId) {
         if (typeof callback === 'function') {
           callback({ ok: false, error: '缺少用户标识，请重新登录' });
@@ -280,7 +284,7 @@ const registerGroupSocketHandlers = (io) => {
       }
 
       ensureGroup(code);
-      joinGroupForSocket(socket, code, memberId, userName, true);
+      joinGroupForSocket(socket, code, memberId, userName, avatar, true);
       if (typeof callback === 'function') {
         callback({ ok: true, code });
       }
@@ -292,6 +296,7 @@ const registerGroupSocketHandlers = (io) => {
       const userName = typeof payload?.userName === 'string' && payload.userName.trim() !== ''
         ? payload.userName.trim()
         : '匿名游民';
+      const avatar = typeof payload?.avatar === 'string' ? payload.avatar : '';
       if (!code) {
         if (typeof callback === 'function') {
           callback({ ok: false, error: '邀请码不能为空' });
@@ -328,7 +333,7 @@ const registerGroupSocketHandlers = (io) => {
         return;
       }
 
-      joinGroupForSocket(socket, code, memberId, userName, false);
+      joinGroupForSocket(socket, code, memberId, userName, avatar, false);
       if (typeof callback === 'function') {
         callback({ ok: true, code });
       }

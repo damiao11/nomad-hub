@@ -571,6 +571,7 @@ export default function LeafletMap() {
     chatLoadingMore,
     chatUnread,
     chatSending,
+    groupMembers,
     chatListRef,
     loadOlderChatMessages,
     sendGroupMessage,
@@ -607,6 +608,7 @@ export default function LeafletMap() {
     isLoggedIn,
     userId,
     userName,
+    avatar,
     groupCode,
     setGroupCode,
     showNotice,
@@ -1326,6 +1328,7 @@ export default function LeafletMap() {
         chatSending={chatSending}
         chatHasMore={chatHasMore}
         chatLoadingMore={chatLoadingMore}
+        groupMembers={groupMembers}
         chatListRef={chatListRef}
         onClose={() => setChatOpen(false)}
         onChatInputChange={setChatInput}
