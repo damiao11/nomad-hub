@@ -307,7 +307,7 @@ export default function LoginPanel({
           <div className="rounded-xl bg-white p-5 shadow-2xl w-72 mx-4 space-y-4 text-center" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-base font-bold text-slate-800">赞赏作者</h3>
             <p className="text-sm text-slate-500">感谢你的支持！请作者喝杯咖啡</p>
-            <p className="text-[10px] text-slate-400">点击下方按钮保存二维码，用微信/支付宝扫一扫赞赏</p>
+            <p className="text-[10px] text-slate-400">微信码需保存后扫一扫，支付宝可直接跳转</p>
             <div className="flex justify-center gap-4">
               <a href="/wechat-qr.jpg" download="微信赞赏码.jpg" className="space-y-1 no-underline">
                 <img src="/wechat-qr.jpg" alt="微信赞赏码" className="h-36 w-36 rounded-xl object-cover shadow-sm" />
