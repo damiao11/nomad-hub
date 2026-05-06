@@ -307,16 +307,16 @@ export default function LoginPanel({
           <div className="rounded-xl bg-white p-5 shadow-2xl w-72 mx-4 space-y-4 text-center" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-base font-bold text-slate-800">赞赏作者</h3>
             <p className="text-sm text-slate-500">感谢你的支持！请作者喝杯咖啡</p>
-            <p className="text-[10px] text-slate-400">长按二维码即可识别赞赏，无需保存</p>
+            <p className="text-[10px] text-slate-400">点击下方按钮保存二维码，用微信/支付宝扫一扫赞赏</p>
             <div className="flex justify-center gap-4">
-              <div className="space-y-1">
-                <img src="/wechat-qr.jpg" alt="微信赞赏码" className="h-40 w-40 rounded-xl object-cover shadow-sm" />
-                <span className="text-[11px] text-slate-400 block text-center">微信</span>
-              </div>
-              <div className="space-y-1">
-                <img src="/alipay-qr.jpg" alt="支付宝收款码" className="h-40 w-40 rounded-xl object-cover shadow-sm" />
-                <span className="text-[11px] text-slate-400 block text-center">支付宝</span>
-              </div>
+              <a href="/wechat-qr.jpg" download="微信赞赏码.jpg" className="space-y-1 no-underline">
+                <img src="/wechat-qr.jpg" alt="微信赞赏码" className="h-36 w-36 rounded-xl object-cover shadow-sm" />
+                <span className="text-[11px] text-slate-400 block text-center">保存微信码</span>
+              </a>
+              <a href="/alipay-qr.jpg" download="支付宝收款码.jpg" className="space-y-1 no-underline">
+                <img src="/alipay-qr.jpg" alt="支付宝收款码" className="h-36 w-36 rounded-xl object-cover shadow-sm" />
+                <span className="text-[11px] text-slate-400 block text-center">保存支付宝码</span>
+              </a>
             </div>
             <button onClick={() => setDonateOpen(false)}
               className="text-xs text-gray-400 hover:text-gray-600">关闭</button>
