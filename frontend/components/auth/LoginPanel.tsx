@@ -258,11 +258,17 @@ export default function LoginPanel({
   const displayName = userName || '游民';
   return (
     <>
-      <button type="button" onClick={openEdit}
-        className="absolute right-3 z-[1000] flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white/95 shadow-sm backdrop-blur-sm mobile-safe-top [--safe-top-base:0.75rem] md:right-4 md:top-4">
-        {avatar ? <img src={avatar} alt={displayName} className="h-full w-full object-cover" />
-          : <span className="text-sm font-semibold text-[#6F8B73]">{displayName.slice(0, 1).toUpperCase()}</span>}
-      </button>
+      <div className="absolute right-3 z-[1000] flex flex-col items-center gap-1 mobile-safe-top [--safe-top-base:0.75rem] md:right-4 md:top-4">
+        <button type="button" onClick={openEdit}
+          className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white/95 shadow-sm backdrop-blur-sm">
+          {avatar ? <img src={avatar} alt={displayName} className="h-full w-full object-cover" />
+            : <span className="text-sm font-semibold text-[#6F8B73]">{displayName.slice(0, 1).toUpperCase()}</span>}
+        </button>
+        <button type="button" onClick={() => setDonateOpen(true)}
+          className="rounded-full bg-white/85 px-2 py-0.5 text-[10px] text-amber-500 shadow-sm backdrop-blur-sm hover:bg-white transition-colors">
+          赞赏
+        </button>
+      </div>
 
       {editOpen && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/30">
@@ -289,8 +295,6 @@ export default function LoginPanel({
               <button onClick={() => setEditOpen(false)} disabled={editSaving}
                 className="flex-1 border border-gray-300 text-gray-600 px-3 py-2 rounded text-sm hover:bg-gray-50">取消</button>
             </div>
-            <button onClick={() => setDonateOpen(true)}
-              className="w-full text-xs text-amber-500 hover:text-amber-600 transition-colors">赞赏作者</button>
             <button onClick={handleLogout}
               className="w-full text-xs text-gray-400 hover:text-red-500 transition-colors">退出登录</button>
           </div>
