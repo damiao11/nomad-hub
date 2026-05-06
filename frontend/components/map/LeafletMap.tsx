@@ -421,6 +421,15 @@ const CATEGORY_COLORS: Record<string, string> = {
   '交通': '#f59e0b', '购物': '#a855f7', '其他': '#6b7280',
 };
 
+const TRIP_DEFAULT_COLORS = ['#ef4444', '#f59e0b', '#3b82f6', '#22c55e', '#a855f7', '#ec4899', '#06b6d4', '#84cc16'];
+
+const getTripColor = (trip: any) => {
+  if (trip.category && CATEGORY_COLORS[trip.category]) {
+    return CATEGORY_COLORS[trip.category];
+  }
+  return TRIP_DEFAULT_COLORS[trip.id % TRIP_DEFAULT_COLORS.length];
+};
+
 const CATEGORIES = ['美食', '风景', '住宿', '交通', '购物', '其他'];
 
 const createTripClusterIcon = (color: string) => {
@@ -458,7 +467,7 @@ function TripMarkers({ trips, onEdit, onDelete, onImageClick }: {
     });
 
     trips.forEach((trip) => {
-      const color = CATEGORY_COLORS[trip.category] || CATEGORY_COLORS['其他'];
+      const color = getTripColor(trip);
       const icon = createTripClusterIcon(color);
       const pos: [number, number] = toMapPosition(trip.lat, trip.lng, true);
 
@@ -474,7 +483,7 @@ function TripMarkers({ trips, onEdit, onDelete, onImageClick }: {
           ${tripImages.map((item: PreviewImageItem, i: number) => `
             <img src="${item.src}" alt="${item.alt}" style="width:100%;height:80px;object-fit:cover;border-radius:6px;cursor:pointer;margin-bottom:4px" onclick="window.__tripImgClick && window.__tripImgClick('${trip.id}', ${i})" />
           `).join('')}
-          <div style="font-size:13px;font-weight:600;color:#333">${trip.category ? '<span style="display:inline-block;background:' + (CATEGORY_COLORS[trip.category] || CATEGORY_COLORS['其他']) + ';color:white;font-size:10px;padding:1px 6px;border-radius:4px;margin-right:4px">' + trip.category + '</span>' : ''}${trip.name}</div>
+          <div style="font-size:13px;font-weight:600;color:#333">${trip.category ? '<span style="display:inline-block;background:' + color + ';color:white;font-size:10px;padding:1px 6px;border-radius:4px;margin-right:4px">' + trip.category + '</span>' : ''}${trip.name}</div>
           <p style="font-size:11px;color:#888;margin:4px 0">${trip.note || ''}</p>
           <div style="font-size:10px;color:#aaa;margin-bottom:4px">${new Date(trip.createdAt).toLocaleString()}</div>
           <button onclick="window.__tripEdit && window.__tripEdit('${trip.id}')" style="background:#7E9D82;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:11px;margin-right:4px;cursor:pointer">修改</button>
