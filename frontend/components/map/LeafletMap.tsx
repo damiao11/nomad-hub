@@ -643,7 +643,6 @@ export default function LeafletMap() {
   const [tripName, setTripName] = useState('');
   const [tripNote, setTripNote] = useState('');
   const [tripCategory, setTripCategory] = useState('');
-  const [tripIsPublic, setTripIsPublic] = useState(true);
   const [tripFiles, setTripFiles] = useState<File[]>([]);
   const [tripSaving, setTripSaving] = useState(false);
   const [tripSearchQuery, setTripSearchQuery] = useState('');
@@ -662,7 +661,6 @@ export default function LeafletMap() {
   const [editTripName, setEditTripName] = useState('');
   const [editTripNote, setEditTripNote] = useState('');
   const [editTripCategory, setEditTripCategory] = useState('');
-  const [editTripIsPublic, setEditTripIsPublic] = useState(true);
   const [editTripFiles, setEditTripFiles] = useState<File[]>([]);
   const [editImageMode, setEditImageMode] = useState<'keep' | 'replace' | 'clear'>('keep');
   const [editTripSaving, setEditTripSaving] = useState(false);
@@ -1010,7 +1008,6 @@ export default function LeafletMap() {
     setTripName('');
     setTripNote('');
     setTripCategory('');
-    setTripIsPublic(true);
     setTripFiles([]);
     setTripFormOpen(true);
   };
@@ -1028,7 +1025,6 @@ export default function LeafletMap() {
     setEditTripName(typeof trip.name === 'string' ? trip.name : '');
     setEditTripNote(typeof trip.note === 'string' ? trip.note : '');
     setEditTripCategory(typeof trip.category === 'string' ? trip.category : '');
-    setEditTripIsPublic(trip.isPublic !== 0);
     setEditingTripOriginalPhoto(normalizeTripPhotoPayload(trip.photoUrl));
     setEditImageMode('keep');
     setEditTripFiles([]);
@@ -1072,7 +1068,6 @@ export default function LeafletMap() {
         name: trimmedName,
         note: tripNote.trim(),
         category: tripCategory,
-        isPublic: tripIsPublic,
         photoUrl,
         lat: pendingTripPosition[0],
         lng: pendingTripPosition[1],
@@ -1136,7 +1131,6 @@ export default function LeafletMap() {
         name: trimmedName,
         note: editTripNote.trim(),
         category: editTripCategory,
-        isPublic: editTripIsPublic,
         photoUrl,
       });
 
@@ -1301,6 +1295,39 @@ export default function LeafletMap() {
         .dark-mode-active .leaflet-container {
           background: #1a1a1a;
         }
+        .dark-mode-active .bg-white,
+        .dark-mode-active .bg-white\/90,
+        .dark-mode-active .bg-white\/95,
+        .dark-mode-active .bg-white\/55 {
+          background: #1e2a1e !important;
+          border-color: #2d3d2d !important;
+          color: #c8d6c8 !important;
+        }
+        .dark-mode-active .text-slate-800,
+        .dark-mode-active .text-slate-700 {
+          color: #c8d6c8 !important;
+        }
+        .dark-mode-active .bg-slate-100 {
+          background: #2d3d2d !important;
+          color: #b0c0b0 !important;
+        }
+        .dark-mode-active .border-slate-200,
+        .dark-mode-active .border-slate-300,
+        .dark-mode-active .border-b {
+          border-color: #2d3d2d !important;
+        }
+        .dark-mode-active input,
+        .dark-mode-active textarea {
+          background: #2d3d2d !important;
+          color: #c8d6c8 !important;
+          border-color: #3d4d3d !important;
+        }
+        .dark-mode-active .bg-\[\\#7E9D82\] {
+          background: #3d6b4a !important;
+        }
+        .dark-mode-active .hover\\:bg-\[\\#6F8B73\]\\:hover {
+          background: #2d5a3a !important;
+        }
       `}</style>
 
       <MapSearchBar
@@ -1332,13 +1359,11 @@ export default function LeafletMap() {
         tripNote={tripNote}
         tripFiles={tripFiles}
         tripCategory={tripCategory}
-        tripIsPublic={tripIsPublic}
         tripSaving={tripSaving}
         onClose={closeTripForm}
         onTripNameChange={setTripName}
         onTripNoteChange={setTripNote}
         onTripCategoryChange={setTripCategory}
-        onTripIsPublicChange={setTripIsPublic}
         onTripFilesChange={setTripFiles}
         onSubmit={submitTripForm}
       />
@@ -1349,7 +1374,6 @@ export default function LeafletMap() {
         editTripNote={editTripNote}
         editTripFiles={editTripFiles}
         editTripCategory={editTripCategory}
-        editTripIsPublic={editTripIsPublic}
         editTripSaving={editTripSaving}
         editTripHasImages={editTripHasImages}
         existingImageCount={editingTripOriginalImages.length}
@@ -1359,7 +1383,6 @@ export default function LeafletMap() {
         onEditTripNameChange={setEditTripName}
         onEditTripNoteChange={setEditTripNote}
         onEditTripCategoryChange={setEditTripCategory}
-        onEditTripIsPublicChange={setEditTripIsPublic}
         onEditTripFilesChange={setEditTripFiles}
         onEditImageModeChange={setEditImageMode}
         onSubmit={submitEditTripForm}

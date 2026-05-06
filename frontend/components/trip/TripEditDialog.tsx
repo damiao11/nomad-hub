@@ -7,7 +7,6 @@ type TripEditDialogProps = {
   editTripName: string;
   editTripNote: string;
   editTripCategory: string;
-  editTripIsPublic: boolean;
   editTripFiles: File[];
   editTripSaving: boolean;
   editTripHasImages: boolean;
@@ -18,7 +17,6 @@ type TripEditDialogProps = {
   onEditTripNameChange: (value: string) => void;
   onEditTripNoteChange: (value: string) => void;
   onEditTripCategoryChange: (value: string) => void;
-  onEditTripIsPublicChange: (value: boolean) => void;
   onEditTripFilesChange: (files: File[]) => void;
   onEditImageModeChange: (mode: 'keep' | 'replace' | 'clear') => void;
   onSubmit: () => void;
@@ -29,9 +27,9 @@ const CATEGORIES = ['美食', '风景', '住宿', '交通', '购物', '其他'];
 const MAX_FILES = 3;
 
 const TripEditDialog = memo(function TripEditDialog({
-  open, editTripName, editTripNote, editTripCategory, editTripIsPublic, editTripFiles, editTripSaving,
+  open, editTripName, editTripNote, editTripCategory, editTripFiles, editTripSaving,
   editTripHasImages, existingImageCount, maxImageCount, editImageMode,
-  onClose, onEditTripNameChange, onEditTripNoteChange, onEditTripCategoryChange, onEditTripIsPublicChange,
+  onClose, onEditTripNameChange, onEditTripNoteChange, onEditTripCategoryChange,
   onEditTripFilesChange, onEditImageModeChange, onSubmit,
 }: TripEditDialogProps) {
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -85,17 +83,6 @@ const TripEditDialog = memo(function TripEditDialog({
               {cat}
             </button>
           ))}
-        </div>
-
-        {/* 公开/私密切换 */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-500">可见性：</span>
-          <button type="button"
-            onClick={() => onEditTripIsPublicChange(!editTripIsPublic)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${editTripIsPublic ? 'bg-[#7E9D82]' : 'bg-gray-300'}`}>
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${editTripIsPublic ? 'translate-x-6' : 'translate-x-1'}`} />
-          </button>
-          <span className="text-xs text-slate-400">{editTripIsPublic ? '群友可见' : '仅自己可见'}</span>
         </div>
 
         {/* 照片管理 */}
