@@ -306,15 +306,16 @@ export default function LoginPanel({
         <div className="fixed inset-0 z-[2001] flex items-center justify-center bg-black/40" onClick={() => setDonateOpen(false)}>
           <div className="rounded-xl bg-white p-5 shadow-2xl w-72 mx-4 space-y-4 text-center" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-base font-bold text-slate-800">赞赏作者</h3>
-            <p className="text-sm text-slate-500">感谢你的支持！扫码请作者喝杯咖啡</p>
+            <p className="text-sm text-slate-500">感谢你的支持！请作者喝杯咖啡</p>
+            <p className="text-[10px] text-slate-400">长按二维码即可识别赞赏，无需保存</p>
             <div className="flex justify-center gap-4">
-              <div className="space-y-2">
-                <img src="/wechat-qr.jpg" alt="微信赞赏码" className="h-36 w-36 rounded-lg object-cover" />
-                <span className="text-[10px] text-slate-400">微信</span>
+              <div className="space-y-1">
+                <img src="/wechat-qr.jpg" alt="微信赞赏码" className="h-40 w-40 rounded-xl object-cover shadow-sm" />
+                <span className="text-[11px] text-slate-400 block text-center">微信</span>
               </div>
-              <div className="space-y-2">
-                <img src="/alipay-qr.jpg" alt="支付宝收款码" className="h-36 w-36 rounded-lg object-cover" />
-                <span className="text-[10px] text-slate-400">支付宝</span>
+              <div className="space-y-1">
+                <img src="/alipay-qr.jpg" alt="支付宝收款码" className="h-40 w-40 rounded-xl object-cover shadow-sm" />
+                <span className="text-[11px] text-slate-400 block text-center">支付宝</span>
               </div>
             </div>
             <button onClick={() => setDonateOpen(false)}
