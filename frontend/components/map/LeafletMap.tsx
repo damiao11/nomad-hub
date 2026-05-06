@@ -1225,7 +1225,7 @@ export default function LeafletMap() {
   const editTripHasImages = editingTripOriginalImages.length > 0;
 
   return (
-    <div className="map-fullscreen relative">
+    <div className={`map-fullscreen relative ${darkMode ? 'dark-mode-active' : ''}`}>
       {showOldBrowserTip && (
         <div className="absolute left-0 right-0 top-0 z-[2000] bg-amber-50 border-b border-amber-200 px-4 py-3 text-center">
           <p className="text-sm text-amber-800">
@@ -1295,11 +1295,11 @@ export default function LeafletMap() {
             opacity: 0.78;
           }
         }
-        .dark-map-tiles {
+        .dark-mode-active .leaflet-tile {
           filter: invert(0.92) hue-rotate(180deg) brightness(0.85) saturate(0.6);
         }
-        .dark-map-tiles + .leaflet-control-container .leaflet-control-zoom a {
-          filter: invert(1) hue-rotate(180deg);
+        .dark-mode-active .leaflet-container {
+          background: #1a1a1a;
         }
       `}</style>
 
@@ -1380,7 +1380,6 @@ export default function LeafletMap() {
           minZoom={3}
           maxZoom={18}
           attribution='&copy; <a href="https://ditu.amap.com/">Amap</a>'
-          className={darkMode ? 'dark-map-tiles' : ''}
         />
         
         {/* 点击保存逻辑 */}
