@@ -796,7 +796,20 @@ export default function LeafletMap() {
         setHasAutoLocated(true);
       },
       () => {
-        // 首次获取失败时等待 watchPosition 的后续定位结果。
+        // 高精度超时，用低精度 IP 定位重试
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const current = toMapPosition(pos.coords.latitude, pos.coords.longitude, useGcjOffset);
+            setMyPosition(current);
+            mapInstance.flyTo(current, 14, { duration: 0.8 });
+            setLocatePulse(true);
+            setHasAutoLocated(true);
+          },
+          () => {
+            setHasAutoLocated(true);
+          },
+          { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 }
+        );
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
@@ -1165,7 +1178,19 @@ export default function LeafletMap() {
         setLocatePulse(true);
       },
       () => {
-        showNotice('暂时无法获取当前位置，请检查定位权限');
+        // 高精度超时，尝试 IP 定位
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const current = toMapPosition(pos.coords.latitude, pos.coords.longitude, useGcjOffset);
+            setMyPosition(current);
+            mapInstance.flyTo(current, 14, { duration: 0.8 });
+            setLocatePulse(true);
+          },
+          () => {
+            showNotice('暂时无法获取当前位置，请检查定位权限');
+          },
+          { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 }
+        );
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
