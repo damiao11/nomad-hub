@@ -580,11 +580,12 @@ function LiveLocationTracker({ onOthersUpdate, onMyPositionUpdate, onMyAccuracyU
           const { latitude, longitude, accuracy } = pos.coords;
           const isFirstFix = bestAccuracyRef.current === Infinity;
 
-          if (isFirstFix && accuracy > FIRST_FIX_MAX_ACCURACY_METERS) {
+          // 桌面端IP定位精度低，不跳过
+          if (highAccuracy && isFirstFix && accuracy > FIRST_FIX_MAX_ACCURACY_METERS) {
             return;
           }
 
-          if (accuracy > GEO_ACCURACY_THRESHOLD_METERS && accuracy >= bestAccuracyRef.current) {
+          if (highAccuracy && accuracy > GEO_ACCURACY_THRESHOLD_METERS && accuracy >= bestAccuracyRef.current) {
             return;
           }
 
