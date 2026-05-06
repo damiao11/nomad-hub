@@ -309,15 +309,11 @@ export default function LoginPanel({
             <p className="text-sm text-slate-500">感谢你的支持！扫码请作者喝杯咖啡</p>
             <div className="flex justify-center gap-4">
               <div className="space-y-2">
-                <div className="h-36 w-36 rounded-lg bg-slate-100 flex items-center justify-center text-xs text-slate-400">
-                  微信赞赏码
-                </div>
+                <img src="/wechat-qr.jpg" alt="微信赞赏码" className="h-36 w-36 rounded-lg object-cover" />
                 <span className="text-[10px] text-slate-400">微信</span>
               </div>
               <div className="space-y-2">
-                <div className="h-36 w-36 rounded-lg bg-slate-100 flex items-center justify-center text-xs text-slate-400">
-                  支付宝收款码
-                </div>
+                <img src="/alipay-qr.jpg" alt="支付宝收款码" className="h-36 w-36 rounded-lg object-cover" />
                 <span className="text-[10px] text-slate-400">支付宝</span>
               </div>
             </div>
