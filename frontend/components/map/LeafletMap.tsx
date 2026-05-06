@@ -622,7 +622,9 @@ function LiveLocationTracker({ onOthersUpdate, onMyPositionUpdate, onMyAccuracyU
       return id;
     };
 
-    let watchId = tryWatch(true);
+    // 桌面端没有GPS，直接用低精度IP定位
+    const useHighAccuracy = isMobileDevice();
+    let watchId = tryWatch(useHighAccuracy);
 
     return () => {
       canceled = true;
@@ -806,32 +808,26 @@ export default function LeafletMap() {
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const current = toMapPosition(pos.coords.latitude, pos.coords.longitude, useGcjOffset);
-        setMyPosition(current);
-        mapInstance.flyTo(current, 16, { duration: 0.8 });
-        setLocatePulse(true);
-        setHasAutoLocated(true);
-      },
-      () => {
-        // 高精度超时，用低精度 IP 定位重试
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            const current = toMapPosition(pos.coords.latitude, pos.coords.longitude, useGcjOffset);
-            setMyPosition(current);
-            mapInstance.flyTo(current, 14, { duration: 0.8 });
-            setLocatePulse(true);
+    const locateAuto = (highAccuracy: boolean) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const current = toMapPosition(pos.coords.latitude, pos.coords.longitude, useGcjOffset);
+          setMyPosition(current);
+          mapInstance.flyTo(current, 16, { duration: 0.8 });
+          setLocatePulse(true);
+          setHasAutoLocated(true);
+        },
+        () => {
+          if (highAccuracy) {
+            locateAuto(false);
+          } else {
             setHasAutoLocated(true);
-          },
-          () => {
-            setHasAutoLocated(true);
-          },
-          { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 }
-        );
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
+          }
+        },
+        { enableHighAccuracy: highAccuracy, timeout: highAccuracy ? 15000 : 10000, maximumAge: highAccuracy ? 0 : 600000 }
+      );
+    };
+    locateAuto(isMobileDevice());
   }, [mapInstance, hasAutoLocated, useGcjOffset]);
 
   useEffect(() => {
@@ -1189,30 +1185,25 @@ export default function LeafletMap() {
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const current = toMapPosition(pos.coords.latitude, pos.coords.longitude, useGcjOffset);
-        setMyPosition(current);
-        mapInstance.flyTo(current, 16, { duration: 0.8 });
-        setLocatePulse(true);
-      },
-      () => {
-        // 高精度超时，尝试 IP 定位
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            const current = toMapPosition(pos.coords.latitude, pos.coords.longitude, useGcjOffset);
-            setMyPosition(current);
-            mapInstance.flyTo(current, 14, { duration: 0.8 });
-            setLocatePulse(true);
-          },
-          () => {
+    const locateManual = (highAccuracy: boolean) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const current = toMapPosition(pos.coords.latitude, pos.coords.longitude, useGcjOffset);
+          setMyPosition(current);
+          mapInstance.flyTo(current, 16, { duration: 0.8 });
+          setLocatePulse(true);
+        },
+        () => {
+          if (highAccuracy) {
+            locateManual(false);
+          } else {
             showNotice('暂时无法获取当前位置，请检查定位权限');
-          },
-          { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 }
-        );
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
+          }
+        },
+        { enableHighAccuracy: highAccuracy, timeout: highAccuracy ? 15000 : 10000, maximumAge: highAccuracy ? 0 : 600000 }
+      );
+    };
+    locateManual(isMobileDevice());
   };
 
   const focusByResult = (result: SearchResult) => {
