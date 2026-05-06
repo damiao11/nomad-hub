@@ -121,12 +121,25 @@ const createSearchHintIcon = () => {
 
 const searchHintIcon = createSearchHintIcon();
 
-type SearchResult = {
+type PlaceResult = {
+  type: 'place';
   place_id: number;
   display_name: string;
   lat: string;
   lon: string;
 };
+
+type TripResult = {
+  type: 'trip';
+  id: number;
+  name: string;
+  note: string;
+  lat: number;
+  lng: number;
+  category: string;
+};
+
+type SearchResult = PlaceResult | TripResult;
 
 type PreviewImageItem = {
   src: string;
@@ -1207,7 +1220,7 @@ export default function LeafletMap() {
     locateManual(isMobileDevice());
   };
 
-  const focusByResult = (result: SearchResult) => {
+  const focusByResult = (result: PlaceResult) => {
     if (!mapInstance) return;
     const lat = Number(result.lat);
     const lon = Number(result.lon);
@@ -1218,36 +1231,61 @@ export default function LeafletMap() {
     setSearchResults([]);
   };
 
+  const focusByTrip = (result: TripResult) => {
+    if (!mapInstance) return;
+    const target = toMapPosition(result.lat, result.lng, useGcjOffset);
+    mapInstance.flyTo(target, SEARCH_FOCUS_ZOOM, { duration: 0.9 });
+    setSearchHintPosition(target);
+    setSearchQuery(result.name);
+    setSearchResults([]);
+  };
+
   const handleSearch = async () => {
     const query = searchQuery.trim();
     if (!query) return;
 
     try {
-      let searchUrl = `${API_BASE_URL}/api/search/places?q=${encodeURIComponent(query)}&limit=8`;
+      // 同时搜索地点和足迹
+      let placeUrl = `${API_BASE_URL}/api/search/places?q=${encodeURIComponent(query)}&limit=6`;
+      const tripUrl = `${API_BASE_URL}/api/trips?userId=${userId || ''}&q=${encodeURIComponent(query)}&limit=10`;
+
       if (myPosition) {
-        searchUrl += `&lat=${myPosition[0]}&lng=${myPosition[1]}`;
-      }
-      const response = await fetch(searchUrl, { method: 'GET', cache: 'no-store' });
-      if (!response.ok) {
-        setSearchResults([]);
-        const errorData = await response.json().catch(() => ({}));
-        showNotice(errorData.error || '搜索服务暂时不可用，请稍后重试');
-        return;
+        placeUrl += `&lat=${myPosition[0]}&lng=${myPosition[1]}`;
       }
 
-      const results = (await response.json()) as SearchResult[];
-      setSearchResults(results);
+      const [placeRes, tripRes] = await Promise.all([
+        fetch(placeUrl, { method: 'GET', cache: 'no-store' }).catch(() => null),
+        fetch(tripUrl, { method: 'GET', cache: 'no-store' }).catch(() => null),
+      ]);
 
-      if (results.length > 0 && mapInstance) {
-        const first = results[0];
-        const target = toMapPosition(Number(first.lat), Number(first.lon), useGcjOffset);
+      const allResults: SearchResult[] = [];
+
+      if (placeRes && placeRes.ok) {
+        const places = await placeRes.json();
+        places.forEach((p: any) => {
+          allResults.push({ type: 'place', place_id: p.place_id, display_name: p.display_name, lat: p.lat, lon: p.lon });
+        });
+      }
+
+      if (tripRes && tripRes.ok) {
+        const trips = await tripRes.json();
+        trips.forEach((t: any) => {
+          allResults.push({ type: 'trip', id: t.id, name: t.name, note: t.note, lat: t.lat, lng: t.lng, category: t.category || '' });
+        });
+      }
+
+      setSearchResults(allResults);
+
+      if (allResults.length > 0 && mapInstance) {
+        const first = allResults[0];
+        const lng = first.type === 'trip' ? first.lng : Number(first.lon);
+        const target = toMapPosition(Number(first.lat), lng, useGcjOffset);
         mapInstance.flyTo(target, SEARCH_FOCUS_ZOOM, { duration: 0.9 });
         setSearchHintPosition(target);
       }
     } catch (error) {
-      console.error('搜索地点失败:', error);
+      console.error('搜索失败:', error);
       setSearchResults([]);
-      showNotice('网络异常，暂时无法搜索地点');
     }
   };
 
@@ -1371,7 +1409,8 @@ export default function LeafletMap() {
         searchResults={searchResults}
         onSearchQueryChange={setSearchQuery}
         onSearch={handleSearch}
-        onSelectResult={focusByResult}
+        onSelectPlace={focusByResult}
+        onSelectTrip={focusByTrip}
       />
 
       {/* 登录UI */}
