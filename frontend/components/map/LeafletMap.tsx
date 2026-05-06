@@ -136,7 +136,6 @@ type TripResult = {
   note: string;
   lat: number;
   lng: number;
-  category: string;
 };
 
 type SearchResult = PlaceResult | TripResult;
@@ -415,20 +414,9 @@ const toStoragePosition = (lat: number, lng: number, useGcj: boolean): [number, 
   return gcj02ToWgs84(lat, lng);
 };
 
-// 足迹分类颜色
-const CATEGORY_COLORS: Record<string, string> = {
-  '美食': '#ef4444', '风景': '#22c55e', '住宿': '#3b82f6',
-  '交通': '#f59e0b', '购物': '#a855f7', '其他': '#6b7280',
-};
+const TRIP_COLORS = ['#ef4444', '#f59e0b', '#3b82f6', '#22c55e', '#a855f7', '#ec4899', '#06b6d4', '#84cc16'];
 
-const TRIP_DEFAULT_COLORS = ['#ef4444', '#f59e0b', '#3b82f6', '#22c55e', '#a855f7', '#ec4899', '#06b6d4', '#84cc16'];
-
-const getTripColor = (trip: any) => {
-  if (trip.category && CATEGORY_COLORS[trip.category]) {
-    return CATEGORY_COLORS[trip.category];
-  }
-  return TRIP_DEFAULT_COLORS[trip.id % TRIP_DEFAULT_COLORS.length];
-};
+const getTripColor = (id: number) => TRIP_COLORS[id % TRIP_COLORS.length];
 
 const CATEGORIES = ['美食', '风景', '住宿', '交通', '购物', '其他'];
 
@@ -467,7 +455,7 @@ function TripMarkers({ trips, onEdit, onDelete, onImageClick }: {
     });
 
     trips.forEach((trip) => {
-      const color = getTripColor(trip);
+      const color = getTripColor(trip.id);
       const icon = createTripClusterIcon(color);
       const pos: [number, number] = toMapPosition(trip.lat, trip.lng, true);
 
@@ -483,7 +471,7 @@ function TripMarkers({ trips, onEdit, onDelete, onImageClick }: {
           ${tripImages.map((item: PreviewImageItem, i: number) => `
             <img src="${item.src}" alt="${item.alt}" style="width:100%;height:80px;object-fit:cover;border-radius:6px;cursor:pointer;margin-bottom:4px" onclick="window.__tripImgClick && window.__tripImgClick('${trip.id}', ${i})" />
           `).join('')}
-          <div style="font-size:13px;font-weight:600;color:#333">${trip.category ? '<span style="display:inline-block;background:' + color + ';color:white;font-size:10px;padding:1px 6px;border-radius:4px;margin-right:4px">' + trip.category + '</span>' : ''}${trip.name}</div>
+          <div style="font-size:13px;font-weight:600;color:#333">${trip.name}</div>
           <p style="font-size:11px;color:#888;margin:4px 0">${trip.note || ''}</p>
           <div style="font-size:10px;color:#aaa;margin-bottom:4px">${new Date(trip.createdAt).toLocaleString()}</div>
           <button onclick="window.__tripEdit && window.__tripEdit('${trip.id}')" style="background:#7E9D82;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:11px;margin-right:4px;cursor:pointer">修改</button>
@@ -686,7 +674,6 @@ export default function LeafletMap() {
   const [pendingTripPosition, setPendingTripPosition] = useState<[number, number] | null>(null);
   const [tripName, setTripName] = useState('');
   const [tripNote, setTripNote] = useState('');
-  const [tripCategory, setTripCategory] = useState('');
   const [tripFiles, setTripFiles] = useState<File[]>([]);
   const [tripSaving, setTripSaving] = useState(false);
   const [tripSearchQuery, setTripSearchQuery] = useState('');
@@ -704,7 +691,6 @@ export default function LeafletMap() {
   const [editingTripOriginalPhoto, setEditingTripOriginalPhoto] = useState('');
   const [editTripName, setEditTripName] = useState('');
   const [editTripNote, setEditTripNote] = useState('');
-  const [editTripCategory, setEditTripCategory] = useState('');
   const [editTripFiles, setEditTripFiles] = useState<File[]>([]);
   const [editImageMode, setEditImageMode] = useState<'keep' | 'replace' | 'clear'>('keep');
   const [editTripSaving, setEditTripSaving] = useState(false);
@@ -1058,7 +1044,6 @@ export default function LeafletMap() {
     setPendingTripPosition(normalized);
     setTripName('');
     setTripNote('');
-    setTripCategory('');
     setTripFiles([]);
     setTripFormOpen(true);
   };
@@ -1075,7 +1060,6 @@ export default function LeafletMap() {
     setEditingTripId(trip.id);
     setEditTripName(typeof trip.name === 'string' ? trip.name : '');
     setEditTripNote(typeof trip.note === 'string' ? trip.note : '');
-    setEditTripCategory(typeof trip.category === 'string' ? trip.category : '');
     setEditingTripOriginalPhoto(normalizeTripPhotoPayload(trip.photoUrl));
     setEditImageMode('keep');
     setEditTripFiles([]);
@@ -1118,7 +1102,6 @@ export default function LeafletMap() {
       const result = await createTrip({
         name: trimmedName,
         note: tripNote.trim(),
-        category: tripCategory,
         photoUrl,
         lat: pendingTripPosition[0],
         lng: pendingTripPosition[1],
@@ -1181,7 +1164,6 @@ export default function LeafletMap() {
         userId,
         name: trimmedName,
         note: editTripNote.trim(),
-        category: editTripCategory,
         photoUrl,
       });
 
@@ -1279,7 +1261,7 @@ export default function LeafletMap() {
       if (tripRes && tripRes.ok) {
         const trips = await tripRes.json();
         trips.forEach((t: any) => {
-          allResults.push({ type: 'trip', id: t.id, name: t.name, note: t.note, lat: t.lat, lng: t.lng, category: t.category || '' });
+          allResults.push({ type: 'trip', id: t.id, name: t.name, note: t.note, lat: t.lat, lng: t.lng });
         });
       }
 
@@ -1442,12 +1424,10 @@ export default function LeafletMap() {
         tripName={tripName}
         tripNote={tripNote}
         tripFiles={tripFiles}
-        tripCategory={tripCategory}
         tripSaving={tripSaving}
         onClose={closeTripForm}
         onTripNameChange={setTripName}
         onTripNoteChange={setTripNote}
-        onTripCategoryChange={setTripCategory}
         onTripFilesChange={setTripFiles}
         onSubmit={submitTripForm}
       />
@@ -1457,7 +1437,6 @@ export default function LeafletMap() {
         editTripName={editTripName}
         editTripNote={editTripNote}
         editTripFiles={editTripFiles}
-        editTripCategory={editTripCategory}
         editTripSaving={editTripSaving}
         editTripHasImages={editTripHasImages}
         existingImageCount={editingTripOriginalImages.length}
@@ -1466,7 +1445,6 @@ export default function LeafletMap() {
         onClose={closeEditTripForm}
         onEditTripNameChange={setEditTripName}
         onEditTripNoteChange={setEditTripNote}
-        onEditTripCategoryChange={setEditTripCategory}
         onEditTripFilesChange={setEditTripFiles}
         onEditImageModeChange={setEditImageMode}
         onSubmit={submitEditTripForm}

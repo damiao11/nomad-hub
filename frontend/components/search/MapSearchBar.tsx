@@ -15,7 +15,6 @@ type TripResult = {
   note: string;
   lat: number;
   lng: number;
-  category: string;
 };
 
 type UnifiedResult = PlaceResult | TripResult;
@@ -75,9 +74,7 @@ export default function MapSearchBar({
                   {result.type === 'trip' ? result.name : result.display_name}
                 </div>
                 <div className="truncate text-[11px] text-gray-400">
-                  {result.type === 'trip'
-                    ? (result.category ? `${result.category} · ` : '') + (result.note || '无备注')
-                    : '地点'}
+                  {result.type === 'trip' ? (result.note || '无备注') : '地点'}
                 </div>
               </div>
             </button>

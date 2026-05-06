@@ -6,7 +6,6 @@ type TripEditDialogProps = {
   open: boolean;
   editTripName: string;
   editTripNote: string;
-  editTripCategory: string;
   editTripFiles: File[];
   editTripSaving: boolean;
   editTripHasImages: boolean;
@@ -16,20 +15,17 @@ type TripEditDialogProps = {
   onClose: () => void;
   onEditTripNameChange: (value: string) => void;
   onEditTripNoteChange: (value: string) => void;
-  onEditTripCategoryChange: (value: string) => void;
   onEditTripFilesChange: (files: File[]) => void;
   onEditImageModeChange: (mode: 'keep' | 'replace' | 'clear') => void;
   onSubmit: () => void;
 };
 
-const CATEGORIES = ['美食', '风景', '住宿', '交通', '购物', '其他'];
-
 const MAX_FILES = 3;
 
 const TripEditDialog = memo(function TripEditDialog({
-  open, editTripName, editTripNote, editTripCategory, editTripFiles, editTripSaving,
+  open, editTripName, editTripNote, editTripFiles, editTripSaving,
   editTripHasImages, existingImageCount, maxImageCount, editImageMode,
-  onClose, onEditTripNameChange, onEditTripNoteChange, onEditTripCategoryChange,
+  onClose, onEditTripNameChange, onEditTripNoteChange,
   onEditTripFilesChange, onEditImageModeChange, onSubmit,
 }: TripEditDialogProps) {
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -72,18 +68,6 @@ const TripEditDialog = memo(function TripEditDialog({
         <textarea placeholder="简介（可选）" value={editTripNote}
           onChange={(e) => onEditTripNoteChange(e.target.value)}
           className="h-20 w-full resize-none rounded border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#7E9D82]" />
-
-        {/* 分类选择 */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-slate-500">分类：</span>
-          {CATEGORIES.map((cat) => (
-            <button key={cat} type="button"
-              onClick={() => onEditTripCategoryChange(editTripCategory === cat ? '' : cat)}
-              className={`rounded-full px-3 py-1 text-xs transition-colors ${editTripCategory === cat ? 'bg-[#7E9D82] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-              {cat}
-            </button>
-          ))}
-        </div>
 
         {/* 照片管理 */}
         <div className="space-y-2">
