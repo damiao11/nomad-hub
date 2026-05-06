@@ -1434,6 +1434,13 @@ export default function LeafletMap() {
         {darkMode ? '☀️' : '🌙'}
       </button>
 
+      {/* 高德地图版权标识 */}
+      <div className="absolute bottom-1 right-1 z-[1000]">
+        <span className="rounded bg-white/70 px-1.5 py-0.5 text-[9px] text-slate-400 backdrop-blur-sm">
+          &copy; <a href="https://ditu.amap.com/" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600">高德地图</a>
+        </span>
+      </div>
+
       <BottomControlBar
         groupCode={groupCode}
         isSharingEnabled={isSharingEnabled}
