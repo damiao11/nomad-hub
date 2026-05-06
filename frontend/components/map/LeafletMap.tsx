@@ -574,40 +574,59 @@ function LiveLocationTracker({ onOthersUpdate, onMyPositionUpdate, onMyAccuracyU
 
     tryEnableSocket();
 
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        const { latitude, longitude, accuracy } = pos.coords;
-        const isFirstFix = bestAccuracyRef.current === Infinity;
+    const tryWatch = (highAccuracy: boolean) => {
+      const id = navigator.geolocation.watchPosition(
+        (pos) => {
+          const { latitude, longitude, accuracy } = pos.coords;
+          const isFirstFix = bestAccuracyRef.current === Infinity;
 
-        // 首次定位精度太差时先忽略，等待更好的点。
-        if (isFirstFix && accuracy > FIRST_FIX_MAX_ACCURACY_METERS) {
-          return;
-        }
+          if (isFirstFix && accuracy > FIRST_FIX_MAX_ACCURACY_METERS) {
+            return;
+          }
 
-        // 过滤精度差且没有改善的坐标点，减少明显偏移。
-        if (accuracy > GEO_ACCURACY_THRESHOLD_METERS && accuracy >= bestAccuracyRef.current) {
-          return;
-        }
+          if (accuracy > GEO_ACCURACY_THRESHOLD_METERS && accuracy >= bestAccuracyRef.current) {
+            return;
+          }
 
-        bestAccuracyRef.current = Math.min(bestAccuracyRef.current, accuracy);
-        const newPos = toMapPosition(latitude, longitude, useGcjOffset);
-        setMyPosition(newPos);
-        onMyPositionUpdate(newPos);
-        onMyAccuracyUpdate(accuracy);
-        if (shareEnabled && groupCode && socketEnabledRef.current && socket.connected) {
-          socket.emit('update-location', { lat: newPos[0], lng: newPos[1], userName: currentUserName || '我（在线）' });
-        }
-      },
-      (err) => {
-        console.warn('定位更新失败:', err.message);
-        onMyAccuracyUpdate(null);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
+          bestAccuracyRef.current = Math.min(bestAccuracyRef.current, accuracy);
+          const newPos = toMapPosition(latitude, longitude, useGcjOffset);
+          setMyPosition(newPos);
+          onMyPositionUpdate(newPos);
+          onMyAccuracyUpdate(accuracy);
+          if (shareEnabled && groupCode && socketEnabledRef.current && socket.connected) {
+            socket.emit('update-location', { lat: newPos[0], lng: newPos[1], userName: currentUserName || '我（在线）' });
+          }
+        },
+        (err) => {
+          console.warn('定位更新失败:', err.message);
+          // 高精度失败后尝试低精度IP定位
+          if (highAccuracy) {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                const newPos = toMapPosition(pos.coords.latitude, pos.coords.longitude, useGcjOffset);
+                setMyPosition(newPos);
+                onMyPositionUpdate(newPos);
+                onMyAccuracyUpdate(pos.coords.accuracy);
+              },
+              () => {
+                onMyAccuracyUpdate(null);
+              },
+              { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 }
+            );
+          } else {
+            onMyAccuracyUpdate(null);
+          }
+        },
+        { enableHighAccuracy: highAccuracy, timeout: highAccuracy ? 15000 : 30000, maximumAge: highAccuracy ? 0 : 600000 }
+      );
+      return id;
+    };
+
+    let watchId = tryWatch(true);
 
     return () => {
       canceled = true;
-      navigator.geolocation.clearWatch(watchId);
+      if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
       socket.off('group-locations');
     };
   }, [onMyAccuracyUpdate, onMyPositionUpdate, onOthersUpdate, useGcjOffset, shareEnabled, groupCode, currentUserName, currentUserId]);
