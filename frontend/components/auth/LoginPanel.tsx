@@ -73,6 +73,7 @@ export default function LoginPanel({
   const [editAvatarPreview, setEditAvatarPreview] = useState<string | null>(null);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState('');
+  const [donateOpen, setDonateOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleSendCode = async () => {
@@ -288,8 +289,36 @@ export default function LoginPanel({
               <button onClick={() => setEditOpen(false)} disabled={editSaving}
                 className="flex-1 border border-gray-300 text-gray-600 px-3 py-2 rounded text-sm hover:bg-gray-50">取消</button>
             </div>
+            <button onClick={() => setDonateOpen(true)}
+              className="w-full text-xs text-amber-500 hover:text-amber-600 transition-colors">赞赏作者</button>
             <button onClick={handleLogout}
               className="w-full text-xs text-gray-400 hover:text-red-500 transition-colors">退出登录</button>
+          </div>
+        </div>
+      )}
+
+      {/* 赞赏弹窗 */}
+      {donateOpen && (
+        <div className="fixed inset-0 z-[2001] flex items-center justify-center bg-black/40" onClick={() => setDonateOpen(false)}>
+          <div className="rounded-xl bg-white p-5 shadow-2xl w-72 mx-4 space-y-4 text-center" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-slate-800">赞赏作者</h3>
+            <p className="text-sm text-slate-500">感谢你的支持！扫码请作者喝杯咖啡</p>
+            <div className="flex justify-center gap-4">
+              <div className="space-y-2">
+                <div className="h-36 w-36 rounded-lg bg-slate-100 flex items-center justify-center text-xs text-slate-400">
+                  微信赞赏码
+                </div>
+                <span className="text-[10px] text-slate-400">微信</span>
+              </div>
+              <div className="space-y-2">
+                <div className="h-36 w-36 rounded-lg bg-slate-100 flex items-center justify-center text-xs text-slate-400">
+                  支付宝收款码
+                </div>
+                <span className="text-[10px] text-slate-400">支付宝</span>
+              </div>
+            </div>
+            <button onClick={() => setDonateOpen(false)}
+              className="text-xs text-gray-400 hover:text-gray-600">关闭</button>
           </div>
         </div>
       )}

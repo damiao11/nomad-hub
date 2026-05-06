@@ -1295,6 +1295,12 @@ export default function LeafletMap() {
             opacity: 0.78;
           }
         }
+        .dark-map-tiles {
+          filter: invert(0.92) hue-rotate(180deg) brightness(0.85) saturate(0.6);
+        }
+        .dark-map-tiles + .leaflet-control-container .leaflet-control-zoom a {
+          filter: invert(1) hue-rotate(180deg);
+        }
       `}</style>
 
       <MapSearchBar
@@ -1369,12 +1375,12 @@ export default function LeafletMap() {
       >
         <MapInstanceBridge onMapReady={setMapInstance} />
         <TileLayer
-          key={darkMode ? 'dark' : 'light'}
-          url={`https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=${darkMode ? 7 : 8}&x={x}&y={y}&z={z}`}
+          url="https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}"
           subdomains={['1', '2', '3', '4']}
           minZoom={3}
           maxZoom={18}
           attribution='&copy; <a href="https://ditu.amap.com/">Amap</a>'
+          className={darkMode ? 'dark-map-tiles' : ''}
         />
         
         {/* 点击保存逻辑 */}
