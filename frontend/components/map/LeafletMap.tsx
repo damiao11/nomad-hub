@@ -20,6 +20,7 @@ import MapSearchBar from '@/components/search/MapSearchBar';
 import BottomControlBar from '@/components/map/BottomControlBar';
 import NoticeDialog from '@/components/common/NoticeDialog';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import OnboardingGuide from '@/components/guide/OnboardingGuide';
 import { useGroupChat } from '@/hooks/useGroupChat';
 import { useGroupInvite } from '@/hooks/useGroupInvite';
 import { useAuth } from '@/hooks/useAuth';
@@ -660,6 +661,10 @@ const getColorForId = (id: string): 'blue' | 'green' | 'purple' => {
 // --- 5. 主地图组件 ---
 export default function LeafletMap() {
   const [showOldBrowserTip, setShowOldBrowserTip] = useState(isOldBrowser());
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('onboardingDone') !== '1';
+  });
   const [others, setOthers] = useState<any>({});
   const { isLoggedIn, userId, userName, avatar, isAdmin, applyLogin, clearAuth, sendCode, register, login, resetPassword, updateProfile } = useAuth();
   const [myPosition, setMyPosition] = useState<[number, number] | null>(null);
@@ -1624,6 +1629,12 @@ export default function LeafletMap() {
         onPrev={showPreviousPreview}
         onNext={showNextPreview}
       />
+      {showOnboarding && (
+        <OnboardingGuide onClose={() => {
+          setShowOnboarding(false);
+          localStorage.setItem('onboardingDone', '1');
+        }} />
+      )}
     </div>
   );
 }
