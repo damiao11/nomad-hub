@@ -663,7 +663,7 @@ export default function LeafletMap() {
   const [showOldBrowserTip, setShowOldBrowserTip] = useState(isOldBrowser());
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [others, setOthers] = useState<any>({});
-  const { isLoggedIn, userId, userName, avatar, isAdmin, applyLogin, clearAuth, sendCode, register, login, resetPassword, updateProfile } = useAuth();
+  const { isLoggedIn, userId, userName, avatar, isAdmin, applyLogin, clearAuth, sendCode, register, login, resetPassword, updateProfile, deleteAccount } = useAuth();
   const [myPosition, setMyPosition] = useState<[number, number] | null>(null);
   const [myAccuracy, setMyAccuracy] = useState<number | null>(null);
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
@@ -1423,6 +1423,7 @@ export default function LeafletMap() {
         login={login}
         resetPassword={resetPassword}
         updateProfile={updateProfile}
+        deleteAccount={deleteAccount}
       />
 
       <TripCreateDialog

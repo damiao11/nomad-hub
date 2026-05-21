@@ -122,7 +122,25 @@ export function useAuth() {
     } catch (err: any) { return { ok: false as const, error: err?.message || '网络错误' }; }
   };
 
+  const deleteAccount = async (apiBaseUrl: string, inputPassword: string) => {
+    if (!userId) return { ok: false as const, error: '请先登录' };
+    if (!inputPassword) return { ok: false as const, error: '请输入密码' };
+    try {
+      const response = await authFetch(`${apiBaseUrl}/api/user/account`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, password: inputPassword }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        return { ok: false as const, error: data.error || '注销失败' };
+      }
+      clearAuth();
+      return { ok: true as const };
+    } catch (err: any) { return { ok: false as const, error: err?.message || '网络错误' }; }
+  };
+
   const getAuthState = (): AuthState => ({ isLoggedIn, userId, userName, avatar, isAdmin });
 
-  return { isLoggedIn, userId, userName, avatar, isAdmin, applyLogin, clearAuth, sendCode, register, login, resetPassword, updateProfile, getAuthState };
+  return { isLoggedIn, userId, userName, avatar, isAdmin, applyLogin, clearAuth, sendCode, register, login, resetPassword, updateProfile, deleteAccount, getAuthState };
 }

@@ -25,6 +25,7 @@ type LoginPanelProps = {
   updateProfile: (apiBaseUrl: string, updates: { userName?: string; avatar?: string }) => Promise<
     | { ok: true; userName: string; avatar?: string } | { ok: false; error: string }
   >;
+  deleteAccount: (apiBaseUrl: string, password: string) => Promise<{ ok: boolean; error?: string }>;
 };
 
 const AVATAR_SIZE = 128;
@@ -55,7 +56,7 @@ const compressAvatar = (file: File): Promise<string> => {
 
 export default function LoginPanel({
   apiBaseUrl, isLoggedIn, userName, avatar,
-  onLoginSuccess, onLogout, sendCode, register, login, resetPassword, updateProfile,
+  onLoginSuccess, onLogout, sendCode, register, login, resetPassword, updateProfile, deleteAccount,
 }: LoginPanelProps) {
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [email, setEmail] = useState('');
@@ -74,6 +75,10 @@ export default function LoginPanel({
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState('');
   const [donateOpen, setDonateOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleSendCode = async () => {
@@ -157,6 +162,16 @@ export default function LoginPanel({
       setEditOpen(false);
     } catch { setEditError('网络错误'); }
     finally { setEditSaving(false); }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleteSubmitting(true); setDeleteError('');
+    try {
+      const result = await deleteAccount(apiBaseUrl, deletePassword);
+      if (!result.ok) { setDeleteError(result.error || '注销失败'); return; }
+      setDeleteOpen(false); onLogout();
+    } catch { setDeleteError('网络错误'); }
+    finally { setDeleteSubmitting(false); }
   };
 
   // 登录面板
@@ -295,6 +310,8 @@ export default function LoginPanel({
               <button onClick={() => setEditOpen(false)} disabled={editSaving}
                 className="flex-1 border border-gray-300 text-gray-600 px-3 py-2 rounded text-sm hover:bg-gray-50">取消</button>
             </div>
+            <button onClick={() => { setDeleteOpen(true); setDeletePassword(''); setDeleteError(''); }}
+              className="w-full text-xs text-red-400 hover:text-red-600 transition-colors">注销账户</button>
             <button onClick={handleLogout}
               className="w-full text-xs text-gray-400 hover:text-red-500 transition-colors">退出登录</button>
           </div>
@@ -320,6 +337,27 @@ export default function LoginPanel({
             <p className="text-[10px] text-slate-400 text-center">（微信码需保存后扫一扫，支付宝可直接跳转）</p>
             <button onClick={() => setDonateOpen(false)}
               className="text-xs text-gray-400 hover:text-gray-600">关闭</button>
+          </div>
+        </div>
+      )}
+      {/* 注销确认弹窗 */}
+      {deleteOpen && (
+        <div className="fixed inset-0 z-[2002] flex items-center justify-center bg-black/40" onClick={() => setDeleteOpen(false)}>
+          <div className="rounded-xl bg-white p-5 shadow-2xl w-72 mx-4 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-red-500 text-center">注销账户</h3>
+            <p className="text-sm text-slate-500 text-center">此操作不可撤销，将删除所有足迹和聊天记录</p>
+            <input type="password" placeholder="输入密码确认" value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
+            {deleteError && <div className="text-red-500 text-xs text-center">{deleteError}</div>}
+            <div className="flex gap-2">
+              <button onClick={() => { void handleDeleteAccount(); }} disabled={deleteSubmitting || !deletePassword}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded text-sm disabled:opacity-50">
+                {deleteSubmitting ? '注销中...' : '确认注销'}
+              </button>
+              <button onClick={() => setDeleteOpen(false)} disabled={deleteSubmitting}
+                className="flex-1 border border-gray-300 text-gray-600 px-3 py-2 rounded text-sm hover:bg-gray-50">取消</button>
+            </div>
           </div>
         </div>
       )}
