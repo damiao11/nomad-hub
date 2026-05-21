@@ -661,10 +661,7 @@ const getColorForId = (id: string): 'blue' | 'green' | 'purple' => {
 // --- 5. 主地图组件 ---
 export default function LeafletMap() {
   const [showOldBrowserTip, setShowOldBrowserTip] = useState(isOldBrowser());
-  const [showOnboarding, setShowOnboarding] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem('onboardingDone') !== '1';
-  });
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [others, setOthers] = useState<any>({});
   const { isLoggedIn, userId, userName, avatar, isAdmin, applyLogin, clearAuth, sendCode, register, login, resetPassword, updateProfile } = useAuth();
   const [myPosition, setMyPosition] = useState<[number, number] | null>(null);
@@ -977,6 +974,10 @@ export default function LeafletMap() {
 
   const handleLoginSuccess = (newUserId: string, newUserName: string, newAvatar?: string, newIsAdmin?: boolean) => {
     applyLogin(newUserId, newUserName, newAvatar, newIsAdmin);
+    // 首次登录显示引导
+    if (typeof window !== 'undefined' && localStorage.getItem('onboardingDone') !== '1') {
+      setShowOnboarding(true);
+    }
     if (!groupCode) {
       setGroupPanelOpen(true);
     }
