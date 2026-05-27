@@ -245,6 +245,80 @@ const registerAuthRoutes = (app) => {
   });
 };
 
+  // 修改密码（已登录用户在个人面板中修改）
+  app.put('/api/user/password', async (req, res) => {
+    const { userId, oldPassword, newPassword } = req.body;
+
+    if (!userId || !oldPassword || !newPassword) {
+      return res.status(400).json({ error: '必须提供 userId、旧密码和新密码' });
+    }
+
+    if (!REGISTER_PASSWORD_RULE.test(newPassword)) {
+      return res.status(400).json({ error: '新密码需为 8-16 位，且包含字母、数字和符号' });
+    }
+
+    if (oldPassword === newPassword) {
+      return res.status(400).json({ error: '新密码不能与旧密码相同' });
+    }
+
+    let conn;
+    try {
+      conn = await createConnection();
+      const [rows] = await conn.execute('SELECT password FROM User WHERE id = ?', [userId]);
+      if (rows.length === 0) {
+        return res.status(404).json({ error: '用户不存在' });
+      }
+
+      const match = await bcrypt.compare(oldPassword, rows[0].password);
+      if (!match) {
+        return res.status(400).json({ error: '旧密码错误' });
+      }
+
+      const hash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+      await conn.execute('UPDATE User SET password = ? WHERE id = ?', [hash, userId]);
+
+      res.json({ success: true, message: '密码修改成功' });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    } finally {
+      if (conn) await conn.end();
+    }
+  });
+
+  // 注销账户
+  app.delete('/api/user/account', async (req, res) => {
+    const { userId, password } = req.body;
+
+    if (!userId || !password) {
+      return res.status(400).json({ error: '必须提供 userId 和密码' });
+    }
+
+    let conn;
+    try {
+      conn = await createConnection();
+      const [rows] = await conn.execute('SELECT password FROM User WHERE id = ?', [userId]);
+      if (rows.length === 0) {
+        return res.status(404).json({ error: '用户不存在' });
+      }
+
+      const match = await bcrypt.compare(password, rows[0].password);
+      if (!match) {
+        return res.status(400).json({ error: '密码错误' });
+      }
+
+      await conn.execute('DELETE FROM ChatMessages WHERE memberId = ?', [userId]);
+      await conn.execute('DELETE FROM Trip WHERE userId = ?', [userId]);
+      await conn.execute('DELETE FROM User WHERE id = ?', [userId]);
+
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    } finally {
+      if (conn) await conn.end();
+    }
+  });
+};
+
 module.exports = {
   registerAuthRoutes,
 };

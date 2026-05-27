@@ -26,6 +26,7 @@ type LoginPanelProps = {
     | { ok: true; userName: string; avatar?: string } | { ok: false; error: string }
   >;
   deleteAccount: (apiBaseUrl: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  changePassword: (apiBaseUrl: string, oldPassword: string, newPassword: string) => Promise<{ ok: boolean; error?: string }>;
 };
 
 const AVATAR_SIZE = 128;
@@ -56,7 +57,7 @@ const compressAvatar = (file: File): Promise<string> => {
 
 export default function LoginPanel({
   apiBaseUrl, isLoggedIn, userName, avatar,
-  onLoginSuccess, onLogout, sendCode, register, login, resetPassword, updateProfile, deleteAccount,
+  onLoginSuccess, onLogout, sendCode, register, login, resetPassword, updateProfile, deleteAccount, changePassword,
 }: LoginPanelProps) {
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [email, setEmail] = useState('');
@@ -79,6 +80,13 @@ export default function LoginPanel({
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  // 修改密码
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleSendCode = async () => {
@@ -162,6 +170,18 @@ export default function LoginPanel({
       setEditOpen(false);
     } catch { setEditError('网络错误'); }
     finally { setEditSaving(false); }
+  };
+
+  const handleChangePassword = async () => {
+    if (!oldPassword || !newPassword) { setPasswordError('请填写旧密码和新密码'); return; }
+    setPasswordSaving(true); setPasswordError(''); setPasswordSuccess(false);
+    try {
+      const result = await changePassword(apiBaseUrl, oldPassword, newPassword);
+      if (!result.ok) { setPasswordError(result.error || '修改失败'); return; }
+      setPasswordSuccess(true);
+      setOldPassword(''); setNewPassword('');
+    } catch { setPasswordError('网络错误'); }
+    finally { setPasswordSaving(false); }
   };
 
   const handleDeleteAccount = async () => {
@@ -310,6 +330,8 @@ export default function LoginPanel({
               <button onClick={() => setEditOpen(false)} disabled={editSaving}
                 className="flex-1 border border-gray-300 text-gray-600 px-3 py-2 rounded text-sm hover:bg-gray-50">取消</button>
             </div>
+            <button onClick={() => { setPasswordOpen(true); setOldPassword(''); setNewPassword(''); setPasswordError(''); setPasswordSuccess(false); }}
+              className="w-full text-xs text-blue-500 hover:text-blue-700 transition-colors">修改密码</button>
             <button onClick={() => { setDeleteOpen(true); setDeletePassword(''); setDeleteError(''); }}
               className="w-full text-xs text-red-400 hover:text-red-600 transition-colors">注销账户</button>
             <button onClick={handleLogout}
@@ -337,6 +359,39 @@ export default function LoginPanel({
             <p className="text-[10px] text-slate-400 text-center">（微信码需保存后扫一扫，支付宝可直接跳转）</p>
             <button onClick={() => setDonateOpen(false)}
               className="text-xs text-gray-400 hover:text-gray-600">关闭</button>
+          </div>
+        </div>
+      )}
+      {/* 修改密码弹窗 */}
+      {passwordOpen && (
+        <div className="fixed inset-0 z-[2002] flex items-center justify-center bg-black/40" onClick={() => setPasswordOpen(false)}>
+          <div className="rounded-xl bg-white p-5 shadow-2xl w-72 mx-4 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-slate-800 text-center">修改密码</h3>
+            {passwordSuccess ? (
+              <>
+                <p className="text-sm text-green-600 text-center">密码修改成功！</p>
+                <button onClick={() => setPasswordOpen(false)}
+                  className="w-full bg-[#7E9D82] hover:bg-[#6F8B73] text-white px-3 py-2 rounded text-sm">关闭</button>
+              </>
+            ) : (
+              <>
+                <input type="password" placeholder="旧密码" value={oldPassword}
+                  onChange={(e) => setOldPassword(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <input type="password" placeholder="新密码（8-16位，含字母数字符号）" value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                {passwordError && <div className="text-red-500 text-xs text-center">{passwordError}</div>}
+                <div className="flex gap-2">
+                  <button onClick={() => { void handleChangePassword(); }} disabled={passwordSaving || !oldPassword || !newPassword}
+                    className="flex-1 bg-[#7E9D82] hover:bg-[#6F8B73] text-white px-3 py-2 rounded text-sm disabled:opacity-50">
+                    {passwordSaving ? '修改中...' : '确认修改'}
+                  </button>
+                  <button onClick={() => setPasswordOpen(false)} disabled={passwordSaving}
+                    className="flex-1 border border-gray-300 text-gray-600 px-3 py-2 rounded text-sm hover:bg-gray-50">取消</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

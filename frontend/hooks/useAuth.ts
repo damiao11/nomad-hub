@@ -122,6 +122,25 @@ export function useAuth() {
     } catch (err: any) { return { ok: false as const, error: err?.message || '网络错误' }; }
   };
 
+  const changePassword = async (apiBaseUrl: string, oldPassword: string, newPassword: string) => {
+    if (!userId) return { ok: false as const, error: '请先登录' };
+    if (!oldPassword || !newPassword) return { ok: false as const, error: '请填写旧密码和新密码' };
+    if (!REGISTER_PASSWORD_RULE.test(newPassword)) return { ok: false as const, error: '新密码需为 8-16 位，且包含字母、数字和符号' };
+    if (oldPassword === newPassword) return { ok: false as const, error: '新密码不能与旧密码相同' };
+    try {
+      const response = await authFetch(`${apiBaseUrl}/api/user/password`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, oldPassword, newPassword }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        return { ok: false as const, error: data.error || '修改失败' };
+      }
+      return { ok: true as const };
+    } catch (err: any) { return { ok: false as const, error: err?.message || '网络错误' }; }
+  };
+
   const deleteAccount = async (apiBaseUrl: string, inputPassword: string) => {
     if (!userId) return { ok: false as const, error: '请先登录' };
     if (!inputPassword) return { ok: false as const, error: '请输入密码' };
@@ -142,5 +161,5 @@ export function useAuth() {
 
   const getAuthState = (): AuthState => ({ isLoggedIn, userId, userName, avatar, isAdmin });
 
-  return { isLoggedIn, userId, userName, avatar, isAdmin, applyLogin, clearAuth, sendCode, register, login, resetPassword, updateProfile, deleteAccount, getAuthState };
+  return { isLoggedIn, userId, userName, avatar, isAdmin, applyLogin, clearAuth, sendCode, register, login, resetPassword, updateProfile, changePassword, deleteAccount, getAuthState };
 }
