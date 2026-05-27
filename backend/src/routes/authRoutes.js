@@ -243,7 +243,6 @@ const registerAuthRoutes = (app) => {
       if (conn) await conn.end();
     }
   });
-};
 
   // 修改密码（已登录用户在个人面板中修改）
   app.put('/api/user/password', async (req, res) => {
