@@ -146,11 +146,11 @@ type PreviewImageItem = {
   alt: string;
 };
 
-const MAX_IMAGE_EDGE_PX = 1280;
-const MIN_IMAGE_EDGE_PX = 640;
-const INITIAL_IMAGE_QUALITY = 0.62;
-const MIN_IMAGE_QUALITY = 0.3;
-const TARGET_IMAGE_BYTES = 320 * 1024;
+const MAX_IMAGE_EDGE_PX = 1920;
+const MIN_IMAGE_EDGE_PX = 1024;
+const INITIAL_IMAGE_QUALITY = 0.8;
+const MIN_IMAGE_QUALITY = 0.5;
+const TARGET_IMAGE_BYTES = 640 * 1024;
 const MAX_TOTAL_IMAGE_BYTES = 60 * 1024 * 1024;
 const MAX_UPLOAD_IMAGE_COUNT = 3;
 
@@ -213,14 +213,13 @@ const compressImageFile = (file: File, maxSide = MAX_IMAGE_EDGE_PX, quality = IN
         return;
       }
 
-      // 手机端简化压缩：单次缩放，更小尺寸减少保存时间
+      // 手机端简化压缩：单次缩放，减少保存时间
       if (isMobileDevice()) {
-        const mobileMaxSide = Math.min(maxSide, 640);
-        const targetSize = getScaledSize(width, height, mobileMaxSide);
+        const targetSize = getScaledSize(width, height, maxSide);
         canvas.width = targetSize.width;
         canvas.height = targetSize.height;
         ctx.drawImage(image, 0, 0, targetSize.width, targetSize.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
         URL.revokeObjectURL(objectUrl);
         resolve(dataUrl);
         return;
